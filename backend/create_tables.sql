@@ -71,7 +71,6 @@ CREATE TABLE Project (
 CREATE TABLE Field (
     FieldName VARCHAR(100),
     ProjectName VARCHAR(100),
-    Description TEXT NOT NULL,
     PRIMARY KEY (FieldName, ProjectName),
     FOREIGN KEY (ProjectName) REFERENCES Project(ProjectName)
         ON DELETE CASCADE
