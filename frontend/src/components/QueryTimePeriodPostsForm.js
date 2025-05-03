@@ -18,18 +18,21 @@ function QueryTimePeriodPostsForm() {
         setMessage('');
 
         try {
-            const response = await axios.get(`http://localhost:5050/query/timeperiod`, {
+            const response = await axios.get('http://localhost:5050/query/posts-by-time', {
                 params: {
-                    startDate: startDate,
-                    endDate: endDate
+                    start: new Date(startDate).toISOString(),
+                    end: new Date(endDate).toISOString()
                 }
             });
+
             if (response.data.length === 0) {
                 setMessage('No posts found in this time period!');
             } else {
+                console.log('Response data:', response.data);
                 setResults(response.data);
             }
         } catch (error) {
+            console.error('Fetch error:', error);
             setMessage('Error fetching posts.');
         } finally {
             setIsLoading(false);
@@ -134,7 +137,6 @@ function QueryTimePeriodPostsForm() {
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                                 }}>
                                     <p><strong>Username:</strong> {post.username}</p>
-                                    <p><strong>Media:</strong> {post.mediaName}</p>
                                     <p><strong>Content:</strong> {post.content}</p>
                                     <p><strong>Posted:</strong> {new Date(post.postDateTime).toLocaleString()}</p>
                                 </li>

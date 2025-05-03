@@ -37,11 +37,24 @@ function AddProjectForm() {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await axios.post('http://localhost:5050/add-project', formData);
-            setMessage('Project added successfully!');
+            const response = await axios.post('http://localhost:5050/add-project', {
+                projectName: formData.projectName,
+                managerFirstName: formData.managerFirstName,
+                managerLastName: formData.managerLastName,
+                instituteName: formData.instituteName,
+                startDate: formData.startDate,
+                endDate: formData.endDate,
+            });
+            setMessage('Success: Project added!');
             handleClear();
         } catch (error) {
-            setMessage('Error adding project.');
+            if (error.response?.data?.error) {
+                setMessage(`Error: ${error.response.data.error}`);
+                handleClear();
+            } else {
+                setMessage('Error: Unable to add project.');
+                handleClear();
+            }
         } finally {
             setIsLoading(false);
         }
@@ -56,7 +69,10 @@ function AddProjectForm() {
             startDate: '',
             endDate: '',
         });
-        setMessage('');
+        // Clear the success or error message after 3 seconds
+        setTimeout(() => {
+            setMessage('');
+        }, 3000);
     };
 
     // Check if all required fields are filled
@@ -155,13 +171,25 @@ function AddProjectForm() {
                     </button>
                 </div>
                 {message && (
-                    <p style={{ 
-                        ...formStyles.message,
-                        backgroundColor: message.includes('Error') ? '#ffebee' : '#e8f5e9',
-                        color: message.includes('Error') ? '#c62828' : '#2e7d32'
-                    }}>
-                        {message}
-                    </p>
+                  <p style={{
+                    ...formStyles.message,
+                    backgroundColor: message.includes('Error')
+                      ? '#ffebee'
+                      : message.includes('Success')
+                        ? '#e8f5e9'
+                        : 'transparent',
+                    color: message.includes('Error')
+                      ? '#c62828'
+                      : message.includes('Success')
+                        ? '#2e7d32'
+                        : '#000',
+                    border: '1px solid',
+                    padding: '10px',
+                    borderRadius: '5px',
+                    marginTop: '10px'
+                  }}>
+                    {message}
+                  </p>
                 )}
             </form>
         </div>

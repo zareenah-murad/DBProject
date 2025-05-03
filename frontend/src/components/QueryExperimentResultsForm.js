@@ -17,7 +17,7 @@ function QueryExperimentResultsForm() {
         setMessage('');
 
         try {
-            const response = await axios.post('http://localhost:5050/query/experiment', {
+            const response = await axios.post('http://localhost:5050/query/experiment-results', {
                 projectName: projectName
             });
             if (!response.data || (response.data.posts && response.data.posts.length === 0)) {
@@ -117,45 +117,33 @@ function QueryExperimentResultsForm() {
                         {/* Posts and Their Analysis Results */}
                         <h4 style={{ marginBottom: '10px' }}>Posts and Analysis Results</h4>
                         <ul style={{ listStyle: 'none', padding: 0 }}>
-                            {results.posts && results.posts.map((post, index) => (
+
+                        {results.posts && results.posts.length > 0 && (
+                          <div style={{
+                              marginTop: '20px',
+                              padding: '15px',
+                              backgroundColor: '#f5f5f5',
+                              borderRadius: '4px',
+                          }}>
+                            <h3 style={{ marginBottom: '10px' }}>Results:</h3>
+                            <ul style={{ listStyle: 'none', padding: 0 }}>
+                              {results.posts.map((post, index) => (
                                 <li key={index} style={{
-                                    padding: '15px',
-                                    marginBottom: '15px',
+                                    padding: '10px',
+                                    marginBottom: '10px',
                                     backgroundColor: 'white',
                                     borderRadius: '4px',
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                                 }}>
-                                    <p style={{ 
-                                        marginBottom: '10px',
-                                        fontSize: '16px'
-                                    }}>
-                                        <strong>Post Text:</strong> {post.content}
-                                    </p>
-                                    
-                                    {post.analysisResults && post.analysisResults.length > 0 ? (
-                                        <div>
-                                            <strong>Analysis Results:</strong>
-                                            <ul style={{ 
-                                                listStyle: 'none',
-                                                padding: '10px',
-                                                marginTop: '5px',
-                                                backgroundColor: '#f8f9fa',
-                                                borderRadius: '4px'
-                                            }}>
-                                                {post.analysisResults.map((result, rIndex) => (
-                                                    <li key={rIndex} style={{ marginBottom: '5px' }}>
-                                                        <strong>{result.fieldName}:</strong> {result.value}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ) : (
-                                        <p style={{ color: '#666', fontStyle: 'italic' }}>
-                                            No analysis results for this post
-                                        </p>
-                                    )}
+                                  <p><strong>Username:</strong> {post.username}</p>
+                                  <p><strong>Name:</strong> {post.firstName} {post.lastName}</p>
+                                  <p><strong>Content:</strong> {post.content}</p>
+                                  <p><strong>Posted:</strong> {new Date(post.postDateTime).toLocaleString()}</p>
                                 </li>
-                            ))}
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         </ul>
                     </div>
                 )}

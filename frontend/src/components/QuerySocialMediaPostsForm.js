@@ -17,14 +17,22 @@ function QuerySocialMediaPostsForm() {
         setMessage('');
 
         try {
-            const response = await axios.get(`http://localhost:5050/query/socialmedia?mediaName=${encodeURIComponent(mediaName)}`);
+            const response = await axios.get(`http://localhost:5050/query/posts-by-media?mediaName=${encodeURIComponent(mediaName)}`);
+            console.log('Response data:', response.data);
+            setResults(response.data);  // Keep this
+
+
             if (response.data.length === 0) {
                 setMessage('No posts found!');
             } else {
                 setResults(response.data);
             }
         } catch (error) {
-            setMessage('Error fetching posts.');
+            if (error.response && error.response.data && error.response.data.error) {
+                setMessage(`Error: ${error.response.data.error}`);
+            } else {
+                setMessage('Error: Unable to fetch posts.');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -98,7 +106,11 @@ function QuerySocialMediaPostsForm() {
                                 }}>
                                     <p><strong>Username:</strong> {post.username}</p>
                                     <p><strong>Content:</strong> {post.content}</p>
-                                    <p><strong>Posted:</strong> {new Date(post.postDateTime).toLocaleString()}</p>
+                                    <p><strong>Posted:</strong> {new Date(post.postDateTime).toLocaleString(undefined, {
+                                        dateStyle: 'medium',
+                                        timeStyle: 'short'
+                                    })}</p>
+
                                 </li>
                             ))}
                         </ul>

@@ -11,6 +11,7 @@ function QueryNamePostsForm() {
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
@@ -18,7 +19,7 @@ function QueryNamePostsForm() {
         setMessage('');
 
         try {
-            const response = await axios.get(`http://localhost:5050/query/name`, {
+            const response = await axios.get(`http://localhost:5050/query/posts-by-name`, {
                 params: {
                     firstName: firstName || undefined,
                     lastName: lastName || undefined
@@ -30,7 +31,12 @@ function QueryNamePostsForm() {
                 setResults(response.data);
             }
         } catch (error) {
-            setMessage('Error fetching posts.');
+            console.error(error);
+            if (error.response?.data?.error) {
+                setMessage(error.response.data.error);
+            } else {
+                setMessage('Error fetching posts.');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -128,7 +134,7 @@ function QueryNamePostsForm() {
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                                 }}>
                                     <p><strong>Username:</strong> {post.username}</p>
-                                    <p><strong>Media:</strong> {post.mediaName}</p>
+                                    <p><strong>Name:</strong> {post.firstName} {post.lastName}</p>
                                     <p><strong>Content:</strong> {post.content}</p>
                                     <p><strong>Posted:</strong> {new Date(post.postDateTime).toLocaleString()}</p>
                                 </li>

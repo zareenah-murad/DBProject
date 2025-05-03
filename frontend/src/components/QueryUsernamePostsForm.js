@@ -18,7 +18,7 @@ function QueryUsernamePostsForm() {
         setMessage('');
 
         try {
-            const response = await axios.get(`http://localhost:5050/query/username`, {
+            const response = await axios.get(`http://localhost:5050/query/posts-by-username`, {
                 params: {
                     username: username,
                     mediaName: mediaName
@@ -30,7 +30,11 @@ function QueryUsernamePostsForm() {
                 setResults(response.data);
             }
         } catch (error) {
-            setMessage('Error fetching posts.');
+            if (error.response && error.response.data && error.response.data.error) {
+                setMessage(`Error: ${error.response.data.error}`);
+            } else {
+                setMessage('Error fetching posts.');
+            }
         } finally {
             setIsLoading(false);
         }
