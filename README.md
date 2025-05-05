@@ -8,6 +8,7 @@ This project is for CS 5330. It is a full-stack web application for managing a d
 backend/
 ├── app.py                  # Flask backend
 ├── config.py               # DB credentials
+├── create_tables.sql       # SQL script for DB setup
 ├── tests/                  # Pytest unit and integration tests
 └── requirements.txt        # Python dependencies
 
@@ -49,15 +50,26 @@ frontend/
    ```
 
 4. **Set up your MySQL DB**
-   - Create a database and schema manually or via SQL dump.
-   - Create a user and assign permissions.
+   - Make sure MySQL is running.
+   - Create a database titled db_project:
+      ```bash
+      mysql -u root -p -e "CREATE DATABASE db_project;"
+      ```
    - Add connection settings in `config.py`:
      ```python
      MYSQL_HOST = 'localhost'
      MYSQL_USER = 'your_user'
      MYSQL_PASSWORD = 'your_password'
-     MYSQL_DB = 'your_database'
+     MYSQL_DB = 'db_project'
      ```
+   - Create a user (if 'your_user' is not root) and assign permissions:
+      ```bash
+      mysql -u root -p -e "CREATE USER 'your_user'@'localhost' IDENTIFIED BY 'your_password'; GRANT ALL PRIVILEGES ON db_project.* TO 'your_user'@'localhost'; FLUSH PRIVILEGES;"
+      ```
+   - Create tables by running `create_tables.sql` in backend:
+      ```bash
+      mysql -u your_user -p db_project < create_tables.sql
+      ```
 
 5. **Run Flask app**
    ```bash
