@@ -52,10 +52,12 @@ frontend/
 4. **Set up your MySQL DB**
    - Make sure MySQL is running.
    - Create a database titled db_project:
+
       ```bash
       mysql -u root -p -e "CREATE DATABASE db_project;"
       ```
    - Add connection settings in `config.py`:
+
      ```python
      MYSQL_HOST = 'localhost'
      MYSQL_USER = 'your_user'
@@ -63,10 +65,12 @@ frontend/
      MYSQL_DB = 'db_project'
      ```
    - Create a user (if 'your_user' is not root) and assign permissions:
+
       ```bash
       mysql -u root -p -e "CREATE USER 'your_user'@'localhost' IDENTIFIED BY 'your_password'; GRANT ALL PRIVILEGES ON db_project.* TO 'your_user'@'localhost'; FLUSH PRIVILEGES;"
       ```
    - Create tables by running `create_tables.sql` in backend:
+   
       ```bash
       mysql -u your_user -p db_project < create_tables.sql
       ```
