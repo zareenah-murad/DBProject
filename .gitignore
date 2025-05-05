@@ -5,6 +5,7 @@ __pycache__/
 # Ignore environment files
 venv/
 .env
+.venv/
 
 # Node modules
 frontend/node_modules/
