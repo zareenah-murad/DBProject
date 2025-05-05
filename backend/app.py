@@ -178,6 +178,11 @@ def add_project():
 
     print(f"DEBUG: Cleaned values -> project: {project_name}, manager: {manager_first} {manager_last}, institute: {institute_name}, start: {start_date}, end: {end_date}")
 
+    # Required check
+    if not all([project_name, manager_first, manager_last, institute_name, start_date, end_date]):
+        print("ERROR: One or more required fields are missing.")
+        return jsonify({"error": "One or more fields are missing or of the wrong type"}), 400
+    
     project_name = project_name.lower()
 
     # SQL injection check
@@ -199,11 +204,6 @@ def add_project():
         if not value.isascii():
             print(f"ERROR: Non-ASCII characters found in: {value}")
             return jsonify({"error": "Fields must contain only ASCII characters"}), 400
-
-    # Required check
-    if not all([project_name, manager_first, manager_last, institute_name, start_date, end_date]):
-        print("ERROR: One or more required fields are missing.")
-        return jsonify({"error": "One or more fields are missing or of the wrong type"}), 400
 
     # Type check
     if not all(isinstance(f, str) for f in [project_name, manager_first, manager_last, institute_name, start_date, end_date]):
