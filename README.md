@@ -31,7 +31,7 @@ frontend/
 
 ## ⚙️ Backend Setup
 
-1. **Clone the repo**
+1. **Clone the repo and navigate to backend folder**
    ```bash
    git clone https://github.com/your-username/DBProject.git
    cd DBProject/backend
@@ -107,13 +107,18 @@ frontend/
 
 ## ✅ Running Tests
 
-1. **Activate virtual environment (if not already)**
+1. **Navigate to backend folder**
+   ```bash
+   cd backend
+   ```
+
+2. **Activate virtual environment (if not already)**
    ```bash
    .venv\Scripts\activate   # On Windows
    source .venv/bin/activate  # On Mac/Linux
    ```
 
-2. **Run tests**
+3. **Run tests**
    ```bash
    pytest
    ```
