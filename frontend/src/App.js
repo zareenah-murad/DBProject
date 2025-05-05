@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainMenu from './components/MainMenu';
 import AddUserForm from './components/AddUserForm';
 import AddPostForm from './components/AddPostForm';
+import RepostForm from './components/RepostForm';
 import AddInstituteForm from './components/AddInstituteForm';
 import AddProjectForm from './components/AddProjectForm';
 import AddFieldForm from './components/AddFieldForm';
@@ -21,6 +22,7 @@ function App() {
         <Route path="/" element={<MainMenu />} />
         <Route path="/add-user" element={<AddUserForm />} />
         <Route path="/add-post" element={<AddPostForm />} />
+        <Route path="/repost-post" element={<RepostForm />} />
         <Route path="/add-institute" element={<AddInstituteForm />} />
         <Route path="/add-project" element={<AddProjectForm />} />
         <Route path="/add-field" element={<AddFieldForm />} />

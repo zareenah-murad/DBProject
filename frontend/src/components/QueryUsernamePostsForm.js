@@ -125,6 +125,10 @@ function QueryUsernamePostsForm() {
                                 }}>
                                     <p><strong>Content:</strong> {post.content}</p>
                                     <p><strong>Posted:</strong> {new Date(post.postDateTime).toLocaleString()}</p>
+                                    <p><strong>Post ID:</strong> {post.postID}</p>
+                                    {post.projects && post.projects.length > 0 && (
+                                        <p><strong>Projects:</strong> {post.projects.join(', ')}</p>
+                                    )}
                                 </li>
                             ))}
                         </ul>

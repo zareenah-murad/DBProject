@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from datetime import datetime
 import MySQLdb
 import config
 
@@ -54,7 +55,6 @@ def add_user():
             return None
         return " ".join(value.strip().split())
 
-    user_id = clean_str(data.get("userID"))
     username = clean_str(data.get("username"))
     media_name = clean_str(data.get("mediaName"))
     first_name = clean_str(data.get("firstName"))
@@ -74,13 +74,13 @@ def add_user():
         print("ERROR: Invalid age format or range.")
         return jsonify({"error": "Age must be a number between 0 and 120"}), 400
 
-    if not all([user_id, username, media_name]):
+    if not all([username, media_name]):
         print("ERROR: One or more required fields are missing.")
-        return jsonify({"error": "Missing required fields (userID, username, mediaName)"}), 400
+        return jsonify({"error": "Missing required fields (username, mediaName)"}), 400
 
     sql_keywords = [";", "--", "drop", "insert", "delete", "update"]
     html_threats = ["<script", "<img", "<svg", "onerror", "onload", "javascript:"]
-    for value in [user_id, username, media_name]:
+    for value in [username, media_name]:
         if any(bad in value.lower() for bad in sql_keywords):
             print(f"ERROR: SQL keyword detected in: {value}")
             return jsonify({"error": "Input contains potentially dangerous content"}), 400
@@ -90,9 +90,7 @@ def add_user():
         if not value.isascii():
             print(f"ERROR: Non-ASCII characters found in: {value}")
             return jsonify({"error": "Fields must contain only ASCII characters"}), 400
-
-    if not re.match(r"^[A-Za-z0-9_-]{1,50}$", user_id):
-        return jsonify({"error": "Invalid userID format (alphanumeric, dash, underscore)"}), 400
+    
     if not re.match(r"^[A-Za-z0-9_.-]{1,50}$", username):
         return jsonify({"error": "Invalid username format (letters, numbers, underscore, period, dash)"}), 400
     if not re.match(r"^[A-Za-z0-9\s]{1,100}$", media_name):
@@ -133,12 +131,15 @@ def add_user():
 
     try:
         cursor.execute("""
-            INSERT INTO Users (UserID, Username, MediaName, FirstName, LastName,
-                               BirthCountry, ResidenceCountry, Age, Gender, IsVerified)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (user_id, username, media_name, first_name, last_name,
-              birth_country, residence_country, age, gender, is_verified))
+            INSERT INTO Users (Username, MediaName, FirstName, LastName,
+                       BirthCountry, ResidenceCountry, Age, Gender, IsVerified)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (username, media_name, first_name, last_name,
+            birth_country, residence_country, age, gender, is_verified))
+        
         db.commit()
+        user_id = cursor.lastrowid
+
     except Exception as e:
         db.rollback()
         error_message = str(e)
@@ -541,6 +542,45 @@ def add_post():
     print("DEBUG: Post inserted successfully.")
     return jsonify({"status": "success", "post_id": post_id}), 201
 
+
+@app.route('/update/repost', methods=['POST'])
+def mark_post_as_repost():
+    data = request.json
+    post_id = data.get('postID')
+    reposted_by_user_id = data.get('repostedByUserID')
+    repost_time = data.get('repostTime')
+
+    if not post_id or not reposted_by_user_id or not repost_time:
+        return jsonify({'error': 'postID, repostedByUserID, and repostTime are required.'}), 400
+
+    try:
+        cursor = db.cursor()
+
+        # Make sure the post exists
+        cursor.execute("SELECT 1 FROM Posts WHERE PostID = %s", (post_id,))
+        if cursor.fetchone() is None:
+            return jsonify({'error': f'No post found with PostID {post_id}'}), 404
+
+        # Make sure the reposting user exists
+        cursor.execute("SELECT 1 FROM Users WHERE UserID = %s", (reposted_by_user_id,))
+        if cursor.fetchone() is None:
+            return jsonify({'error': f'No user found with UserID {reposted_by_user_id}'}), 404
+
+        # Perform the update
+        cursor.execute("""
+            UPDATE Posts
+            SET RepostedByUserID = %s, RepostTime = %s
+            WHERE PostID = %s
+        """, (reposted_by_user_id, repost_time, post_id))
+        db.commit()
+
+        return jsonify({'message': f'Post {post_id} successfully marked as reposted.'}), 200
+
+    except Exception as e:
+        print("ERROR in mark_post_as_repost:", e)
+        return jsonify({'error': 'An error occurred while updating the post.'}), 500
+
+
 @app.route("/add-socialmedia", methods=["POST", "OPTIONS"])
 def add_socialmedia():
     if request.method == "OPTIONS":
@@ -667,6 +707,48 @@ def add_analysisresult():
     return jsonify({"status": "success"}), 201
 
 
+@app.route("/add-used-in", methods=["POST", "OPTIONS"])
+def add_used_in():
+    if request.method == "OPTIONS":
+        response = jsonify({'message': 'CORS preflight successful'})
+        response.headers.add("Access-Control-Allow-Origin", "http://localhost:3000")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
+
+    data = request.get_json()
+    project = data.get("projectName")
+    post = data.get("postID")
+
+    if not project or not post:
+        return jsonify({"error": "Both projectName and postID are required."}), 400
+
+    cursor = db.cursor()
+    try:
+        # Validate project and post existence
+        cursor.execute("SELECT 1 FROM Project WHERE ProjectName = %s", (project,))
+        if cursor.fetchone() is None:
+            return jsonify({"error": "Project does not exist."}), 400
+
+        cursor.execute("SELECT 1 FROM Posts WHERE PostID = %s", (post,))
+        if cursor.fetchone() is None:
+            return jsonify({"error": "Post does not exist."}), 400
+
+        # Check if already used
+        cursor.execute("SELECT 1 FROM Used_In WHERE ProjectName = %s AND PostID = %s", (project, post))
+        if cursor.fetchone():
+            return jsonify({"error": "This post is already used in this project."}), 400
+
+        # Insert
+        cursor.execute("INSERT INTO Used_In (ProjectName, PostID) VALUES (%s, %s)", (project, post))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    return jsonify({"status": "success"}), 201
+
+
 @app.route("/query/posts-by-media", methods=["GET"])
 def query_posts_by_media():
     media_name = request.args.get("mediaName")
@@ -686,22 +768,29 @@ def query_posts_by_media():
 
         # Query posts
         cursor.execute("""
-            SELECT u.Username, p.PostText AS Content, p.PostDateTime
+            SELECT p.PostID, u.Username, p.PostText AS Content, p.PostDateTime,
+                GROUP_CONCAT(ui.ProjectName) AS Projects
             FROM Posts p
             JOIN Users u ON p.UserID = u.UserID
+            LEFT JOIN Used_In ui ON p.PostID = ui.PostID
             WHERE u.MediaName = %s
+            GROUP BY p.PostID
             ORDER BY p.PostDateTime DESC
+
         """, (media_name,))
         rows = cursor.fetchall()
 
         results = [
-            {
-                "username": row[0],
-                "content": row[1],
-                "postDateTime": row[2].isoformat() if row[2] else None
-            }
-            for row in rows
-        ]
+        {
+            "postID": row[0],
+            "username": row[1],
+            "content": row[2],
+            "postDateTime": row[3].isoformat() if row[3] else None,
+            "projects": row[4].split(',') if row[4] else []
+        }
+        for row in rows
+    ]
+
 
         print(f"DEBUG: Found {len(results)} posts for {media_name}")
         return jsonify(results), 200
@@ -709,9 +798,6 @@ def query_posts_by_media():
     except Exception as e:
         print("ERROR during query_posts_by_media:", str(e))
         return jsonify({"error": "Something went wrong while fetching posts."}), 500
-
-from flask import request, jsonify
-from datetime import datetime
 
 @app.route("/query/posts-by-time", methods=["GET"])
 def query_posts_by_time():
@@ -733,14 +819,28 @@ def query_posts_by_time():
 
         cursor = db.cursor()
         cursor.execute("""
-            SELECT u.Username AS username, p.PostText AS content, p.PostDateTime AS postDateTime
+            SELECT p.PostID, u.Username, p.PostText AS content, p.PostDateTime,
+                GROUP_CONCAT(ui.ProjectName) AS Projects
             FROM Posts p
             JOIN Users u ON p.UserID = u.UserID
+            LEFT JOIN Used_In ui ON p.PostID = ui.PostID
             WHERE p.PostDateTime BETWEEN %s AND %s
+            GROUP BY p.PostID
             ORDER BY p.PostDateTime DESC
+
         """, (start_dt, end_dt))
 
-        results = [{"username": r[0], "content": r[1], "postDateTime": r[2].isoformat()} for r in cursor.fetchall()]
+        results = [
+            {
+                'postID': r[0],
+                'username': r[1],
+                'content': r[2],
+                'postDateTime': r[3].isoformat() if r[3] else None,
+                'projects': r[4].split(',') if r[4] else []
+            }
+            for r in cursor.fetchall()
+        ]
+
         return jsonify(results)
 
     except Exception as e:
@@ -772,22 +872,27 @@ def query_posts_by_username():
 
         # Now fetch their posts
         cursor.execute("""
-            SELECT PostText, PostDateTime
-            FROM Posts
-            WHERE UserID = %s
-            ORDER BY PostDateTime DESC
+            SELECT p.PostID, p.PostText, p.PostDateTime, GROUP_CONCAT(ui.ProjectName)
+            FROM Posts p
+            LEFT JOIN Used_In ui ON p.PostID = ui.PostID
+            WHERE p.UserID = %s
+            GROUP BY p.PostID
+            ORDER BY p.PostDateTime DESC
         """, (user_id,))
 
         posts = cursor.fetchall()
         result = [
             {
+                'postID': row[0],
                 'username': username,
                 'mediaName': media_name,
-                'content': post[0],
-                'postDateTime': post[1].isoformat() if post[1] else None
+                'content': row[1],
+                'postDateTime': row[2].isoformat() if row[2] else None,
+                'projects': row[3].split(',') if row[3] else []
             }
-            for post in posts
+            for row in posts
         ]
+
         return jsonify(result), 200
     except Exception as e:
         print('ERROR during query_posts_by_username:', e)
@@ -818,10 +923,13 @@ def query_posts_by_name():
         where_clause = " AND ".join(conditions)
 
         query = f"""
-            SELECT u.Username, u.FirstName, u.LastName, p.PostText, p.PostDateTime
+            SELECT p.PostID, u.Username, u.FirstName, u.LastName, p.PostText, p.PostDateTime,
+                GROUP_CONCAT(ui.ProjectName) AS Projects
             FROM Users u
             JOIN Posts p ON u.UserID = p.UserID
+            LEFT JOIN Used_In ui ON p.PostID = ui.PostID
             WHERE {where_clause}
+            GROUP BY p.PostID
             ORDER BY p.PostDateTime DESC
         """
 
@@ -830,11 +938,13 @@ def query_posts_by_name():
 
         results = [
             {
-                "username": row[0],
-                "firstName": row[1],
-                "lastName": row[2],
-                "content": row[3],
-                "postDateTime": row[4].isoformat() if row[4] else None
+                'postID': row[0],
+                'username': row[1],
+                'firstName': row[2],
+                'lastName': row[3],
+                'content': row[4],
+                'postDateTime': row[5].isoformat() if row[5] else None,
+                'projects': row[6].split(',') if row[6] else []
             }
             for row in rows
         ]
@@ -843,6 +953,7 @@ def query_posts_by_name():
     except Exception as e:
         print("ERROR during query_posts_by_name:", e)
         return jsonify({"error": "An internal error occurred while fetching posts."}), 500
+
 
 @app.route('/query/experiment-results', methods=['GET'])
 def query_experiment_results():
@@ -854,36 +965,117 @@ def query_experiment_results():
     try:
         cursor = db.cursor()
 
-        # Check if the project exists
+        # Confirm the project exists
         cursor.execute("SELECT 1 FROM Project WHERE ProjectName = %s", (project_name,))
         if cursor.fetchone() is None:
             return jsonify({'error': 'No project found with that name.'}), 404
+
+        # Fetch associated posts
+        cursor.execute("""
+            SELECT p.PostID, u.Username, u.FirstName, u.LastName, p.PostText, p.PostDateTime
+            FROM Used_In ui
+            JOIN Posts p ON ui.PostID = p.PostID
+            JOIN Users u ON p.UserID = u.UserID
+            WHERE ui.ProjectName = %s
+            ORDER BY p.PostDateTime DESC
+        """, (project_name,))
+        post_rows = cursor.fetchall()
+
+        post_map = {}
+        for row in post_rows:
+            post_map[row[0]] = {
+                'postID': row[0],
+                'username': row[1],
+                'firstName': row[2],
+                'lastName': row[3],
+                'content': row[4],
+                'postDateTime': row[5].isoformat() if row[5] else None,
+                'analysis': []
+            }
 
         # Fetch analysis results
         cursor.execute("""
             SELECT PostID, FieldName, FieldValue
             FROM AnalysisResult
             WHERE ProjectName = %s
-            ORDER BY PostID, FieldName
         """, (project_name,))
+        analysis_rows = cursor.fetchall()
 
-        rows = cursor.fetchall()
+        field_coverage = {}
+        post_count = len(post_map)
 
-        results = [
-            {
-                'postID': row[0],
-                'fieldName': row[1],
-                'fieldValue': row[2]
-            }
-            for row in rows
-        ]
+        for row in analysis_rows:
+            post_id, field_name, field_value = row
 
-        return jsonify(results), 200
+            if post_id in post_map:
+                post_map[post_id]['analysis'].append({
+                    'field': field_name,
+                    'value': field_value
+                })
+
+            # Count field occurrences for coverage
+            if field_name not in field_coverage:
+                field_coverage[field_name] = set()
+            field_coverage[field_name].add(post_id)
+
+        # Convert field_coverage sets to percentages
+        field_coverage_percent = {
+            field: len(post_ids) / post_count
+            for field, post_ids in field_coverage.items()
+        }
+
+        return jsonify({
+            'posts': list(post_map.values()),
+            'fieldCoverage': field_coverage_percent
+        }), 200
 
     except Exception as e:
         print("ERROR during query_experiment_results:", e)
         return jsonify({'error': 'An unexpected error occurred while fetching results.'}), 500
 
+
+@app.route('/query/posts-by-project', methods=['GET'])
+def query_posts_by_project():
+    project_name = request.args.get('projectName')
+
+    if not project_name:
+        return jsonify({'error': 'Project name is required.'}), 400
+
+    try:
+        cursor = db.cursor()
+
+        # Validate project exists
+        cursor.execute("SELECT 1 FROM Project WHERE ProjectName = %s", (project_name,))
+        if cursor.fetchone() is None:
+            return jsonify({'error': 'No project found with that name.'}), 404
+
+        # Fetch associated posts
+        cursor.execute("""
+            SELECT p.PostID, u.Username, u.MediaName, p.PostText, p.PostDateTime
+            FROM Used_In ui
+            JOIN Posts p ON ui.PostID = p.PostID
+            JOIN Users u ON p.UserID = u.UserID
+            WHERE ui.ProjectName = %s
+            ORDER BY p.PostDateTime DESC
+        """, (project_name,))
+
+        rows = cursor.fetchall()
+        results = [
+            {
+                'postID': r[0],
+                'username': r[1],
+                'mediaName': r[2],
+                'content': r[3],
+                'postDateTime': r[4].isoformat() if r[4] else None
+            }
+            for r in rows
+        ]
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        print("ERROR during query_posts_by_project:", e)
+        return jsonify({'error': 'An error occurred while fetching posts for the project.'}), 500
 
 
 if __name__ == '__main__':

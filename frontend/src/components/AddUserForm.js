@@ -40,7 +40,6 @@ const countries = [
 function AddUserForm() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        userID: '',
         username: '',
         mediaName: '',
         firstName: '',
@@ -79,7 +78,6 @@ function AddUserForm() {
     setIsLoading(true);
     try {
         const response = await axios.post('http://localhost:5050/add-user', {
-            userID: formData.userID,
             username: formData.username,
             mediaName: formData.mediaName,
             firstName: formData.firstName,
@@ -90,7 +88,8 @@ function AddUserForm() {
             gender: formData.gender,
             isVerified: formData.isVerified,
         });
-        setMessage('Success: User added!');
+        const newUserId = response.data.userID;
+        setMessage(`Success: User added! Assigned User ID: ${newUserId}`);
         handleClear(); // only clear form on success
     } catch (error) {
         console.log("ERROR:", error.response?.data?.error || error.message);
@@ -125,7 +124,7 @@ function AddUserForm() {
     };
 
     // Check if all required fields are filled
-    const isFormValid = formData.userID && formData.username && formData.mediaName;
+    const isFormValid = formData.username && formData.mediaName;
 
     return (
         <div style={formStyles.container}>
@@ -139,14 +138,6 @@ function AddUserForm() {
                 </button>
             </div>
             <form onSubmit={handleSubmit}>
-                <input
-                    name="userID"
-                    placeholder="User ID *"
-                    value={formData.userID}
-                    onChange={handleChange}
-                    required
-                    style={formStyles.input}
-                />
                 <input
                     name="username"
                     placeholder="Username *"

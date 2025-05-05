@@ -139,6 +139,10 @@ function QueryTimePeriodPostsForm() {
                                     <p><strong>Username:</strong> {post.username}</p>
                                     <p><strong>Content:</strong> {post.content}</p>
                                     <p><strong>Posted:</strong> {new Date(post.postDateTime).toLocaleString()}</p>
+                                    {post.projects && post.projects.length > 0 && (
+                                        <p><strong>Projects:</strong> {post.projects.join(', ')}</p>
+                                    )}
+
                                 </li>
                             ))}
                         </ul>

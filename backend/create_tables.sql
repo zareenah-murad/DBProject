@@ -1,4 +1,4 @@
--- Active: 1746420074469@@127.0.0.1@3306@db_project
+-- Active: 1745888060388@@127.0.0.1@3306@db_project
 USE db_project;
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -24,7 +24,7 @@ CREATE TABLE Institute (
 
 -- Create Users table
 CREATE TABLE Users (
-    UserID VARCHAR(100),
+    UserID INT AUTO_INCREMENT,
     Username VARCHAR(100) NOT NULL,
     MediaName VARCHAR(100) NOT NULL,
     FirstName VARCHAR(100),
@@ -41,10 +41,10 @@ CREATE TABLE Users (
 -- Create Posts table
 CREATE TABLE Posts (
     PostID VARCHAR(100),
-    UserID VARCHAR(100) NOT NULL,
+    UserID INT NOT NULL,
     PostText TEXT NOT NULL,
     PostDateTime DATETIME NOT NULL,
-    RepostedByUserID VARCHAR(100),
+    RepostedByUserID INT,
     RepostDateTime DATETIME,
     City VARCHAR(100),
     State VARCHAR(100),
@@ -92,6 +92,19 @@ CREATE TABLE AnalysisResult (
         ON DELETE CASCADE
         ON UPDATE CASCADE,
     FOREIGN KEY (FieldName, ProjectName) REFERENCES Field(FieldName, ProjectName)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+-- Create UsedIn table
+CREATE TABLE Used_In (
+    ProjectName VARCHAR(100),
+    PostID VARCHAR(100),
+    PRIMARY KEY (ProjectName, PostID),
+    FOREIGN KEY (ProjectName) REFERENCES Project(ProjectName)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    FOREIGN KEY (PostID) REFERENCES Posts(PostID)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );

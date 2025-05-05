@@ -110,7 +110,9 @@ function QuerySocialMediaPostsForm() {
                                         dateStyle: 'medium',
                                         timeStyle: 'short'
                                     })}</p>
-
+                                    {post.projects && post.projects.length > 0 && (
+                                        <p><strong>Projects:</strong> {post.projects.join(', ')}</p>
+                                    )}
                                 </li>
                             ))}
                         </ul>
