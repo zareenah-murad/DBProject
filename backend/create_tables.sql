@@ -1,3 +1,4 @@
+-- Active: 1746420074469@@127.0.0.1@3306@db_project
 USE db_project;
 
 SET FOREIGN_KEY_CHECKS = 0;

@@ -54,7 +54,6 @@ def add_user():
             return None
         return " ".join(value.strip().split())
 
-    # Clean and extract
     user_id = clean_str(data.get("userID"))
     username = clean_str(data.get("username"))
     media_name = clean_str(data.get("mediaName"))
@@ -67,7 +66,6 @@ def add_user():
 
     print(f"DEBUG: Cleaned values -> userID: {user_id}, username: {username}, media: {media_name}")
 
-    # Age check
     try:
         age = int(data["age"]) if data.get("age") not in ('', None) else None
         if age is not None and (age < 0 or age > 120):
@@ -76,56 +74,66 @@ def add_user():
         print("ERROR: Invalid age format or range.")
         return jsonify({"error": "Age must be a number between 0 and 120"}), 400
 
-    # Required check
     if not all([user_id, username, media_name]):
         print("ERROR: One or more required fields are missing.")
         return jsonify({"error": "Missing required fields (userID, username, mediaName)"}), 400
 
-    # SQL injection check
     sql_keywords = [";", "--", "drop", "insert", "delete", "update"]
-    for value in [user_id, username, media_name]:
-        if isinstance(value, str) and any(bad in value.lower() for bad in sql_keywords):
-            print(f"ERROR: SQL keyword detected in: {value}")
-            return jsonify({"error": "Input contains potentially dangerous content"}), 400
-
-    # HTML/script injection
     html_threats = ["<script", "<img", "<svg", "onerror", "onload", "javascript:"]
     for value in [user_id, username, media_name]:
+        if any(bad in value.lower() for bad in sql_keywords):
+            print(f"ERROR: SQL keyword detected in: {value}")
+            return jsonify({"error": "Input contains potentially dangerous content"}), 400
         if any(threat in value.lower() for threat in html_threats):
             print(f"ERROR: HTML/script detected in: {value}")
             return jsonify({"error": "Input contains disallowed HTML or script tags"}), 400
-
-    # ASCII check
-    for value in [user_id, username, media_name]:
         if not value.isascii():
             print(f"ERROR: Non-ASCII characters found in: {value}")
             return jsonify({"error": "Fields must contain only ASCII characters"}), 400
 
-    # Format & length validation
     if not re.match(r"^[A-Za-z0-9_-]{1,50}$", user_id):
-        print("ERROR: Invalid userID format.")
         return jsonify({"error": "Invalid userID format (alphanumeric, dash, underscore)"}), 400
     if not re.match(r"^[A-Za-z0-9_.-]{1,50}$", username):
-        print("ERROR: Invalid username format.")
         return jsonify({"error": "Invalid username format (letters, numbers, underscore, period, dash)"}), 400
     if not re.match(r"^[A-Za-z0-9\s]{1,100}$", media_name):
-        print("ERROR: Invalid mediaName format.")
         return jsonify({"error": "Invalid mediaName format (alphanumeric + space)"}), 400
+    
+    name_pattern = r"^[A-Za-z\s\-']{1,50}$"  # Allows letters, spaces, hyphens, apostrophes
+    for field_name, value in {"firstName": first_name, "lastName": last_name}.items():
+        if value:
+            if not re.fullmatch(name_pattern, value):
+                print(f"ERROR: Invalid {field_name}: {value}")
+                return jsonify({
+                    "error": f"{field_name} must only contain letters, spaces, hyphens, or apostrophes (1–50 characters)"
+                }), 400
+            if not value.isascii():
+                print(f"ERROR: Non-ASCII in {field_name}: {value}")
+                return jsonify({
+                    "error": f"{field_name} must contain only ASCII characters"
+                }), 400
 
-    # Check if media exists
     cursor = db.cursor()
+
     try:
-        cursor.execute("SELECT * FROM SocialMedia WHERE MediaName = %s", (media_name,))
+        cursor.execute("SELECT 1 FROM SocialMedia WHERE MediaName = %s", (media_name,))
         if cursor.fetchone() is None:
-            print(f"ERROR: MediaName '{media_name}' does not exist.")
             return jsonify({"error": "MediaName does not exist in SocialMedia table"}), 400
     except Exception as e:
         print("ERROR checking SocialMedia:", str(e))
         return jsonify({"error": "Internal error validating SocialMedia"}), 500
 
+    # Platform-specific username check
+    try:
+        cursor.execute("SELECT 1 FROM Users WHERE Username = %s AND MediaName = %s", (username, media_name))
+        if cursor.fetchone():
+            return jsonify({"error": "A user with this username already exists on this media platform."}), 400
+    except Exception as e:
+        print("ERROR checking for duplicate username:", str(e))
+        return jsonify({"error": "Internal error checking username duplication"}), 500
+
     try:
         cursor.execute("""
-            INSERT INTO Users (UserID, Username, MediaName, FirstName, LastName, 
+            INSERT INTO Users (UserID, Username, MediaName, FirstName, LastName,
                                BirthCountry, ResidenceCountry, Age, Gender, IsVerified)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (user_id, username, media_name, first_name, last_name,
@@ -134,18 +142,15 @@ def add_user():
     except Exception as e:
         db.rollback()
         error_message = str(e)
-
         if "Duplicate entry" in error_message and "PRIMARY" in error_message:
             return jsonify({"error": "A user with this User ID already exists. Please use a unique ID."}), 400
-
         if "foreign key constraint" in error_message.lower():
             return jsonify({"error": "The media platform does not exist. Please check Media Name."}), 400
-
-        print("ERROR (DB Exception):", error_message)
         return jsonify({"error": "An unexpected database error occurred. Please try again."}), 500
 
     print("DEBUG: User inserted successfully.")
     return jsonify({"status": "success", "userID": user_id}), 201
+
 
 @app.route("/add-project", methods=["POST", "OPTIONS"])
 def add_project():
@@ -554,7 +559,6 @@ def add_socialmedia():
     else:
         print(f"DEBUG: Raw MediaName input = '{media_name}'")
 
-    # Helper to clean and normalize
     def clean_str(value):
         if not isinstance(value, str):
             return None
@@ -562,41 +566,27 @@ def add_socialmedia():
 
     media_name = clean_str(media_name)
 
-    # Required + type check
     if not media_name:
         print("ERROR: MediaName is empty or invalid after cleaning.")
         return jsonify({"error": "MediaName is required and must be a valid string"}), 400
-    if not isinstance(media_name, str):
-        print("ERROR: MediaName is not a string.")
-        return jsonify({"error": "MediaName must be a string"}), 400
-
-    # Length limit
     if len(media_name) > 100:
         print(f"ERROR: MediaName too long ({len(media_name)} characters).")
         return jsonify({"error": "MediaName too long (max 100 characters)"}), 400
-
-    # ASCII only
     if not media_name.isascii():
         print("ERROR: MediaName contains non-ASCII characters.")
         return jsonify({"error": "MediaName must contain only ASCII characters"}), 400
-
-    # SQL keyword block
     if any(bad in media_name.lower() for bad in [";", "--", "drop", "insert", "delete", "update"]):
         print("ERROR: MediaName contains SQL-like patterns.")
         return jsonify({"error": "MediaName contains potentially dangerous content"}), 400
-
-    # HTML/script block
     if any(threat in media_name.lower() for threat in ["<script", "<img", "<svg", "onerror", "onload", "javascript:"]):
         print("ERROR: MediaName contains HTML/script threats.")
         return jsonify({"error": "MediaName contains disallowed HTML or script tags"}), 400
 
-    # Normalize casing
     media_name = media_name.lower()
 
     cursor = db.cursor()
 
     try:
-        # Duplicate check
         cursor.execute("SELECT * FROM SocialMedia WHERE MediaName = %s", (media_name,))
         if cursor.fetchone():
             print("ERROR: Duplicate MediaName already exists in database.")
@@ -611,7 +601,6 @@ def add_socialmedia():
 
     print("SUCCESS: MediaName added =", media_name)
     return jsonify({"status": "success", "media": media_name}), 201
-
 
 
 from flask import request, jsonify
@@ -634,12 +623,10 @@ def add_analysisresult():
     field_name = data.get("FieldName")
     field_value = data.get("FieldValue")
 
-    # Validate required fields
     if not all([project_name, post_id, field_name, field_value]):
         print("ERROR: Missing required fields.")
         return jsonify({"error": "All fields (ProjectName, PostID, FieldName, FieldValue) are required."}), 400
 
-    # Format checks
     if not re.match(r"^[A-Za-z0-9_\- ]{1,100}$", project_name):
         print(f"ERROR: Invalid ProjectName format: '{project_name}'")
         return jsonify({"error": "Invalid ProjectName format."}), 400
@@ -654,7 +641,6 @@ def add_analysisresult():
         return jsonify({"error": "FieldValue must be a non-empty string."}), 400
 
     cursor = db.cursor()
-
     try:
         cursor.execute("""
             INSERT INTO AnalysisResult (ProjectName, PostID, FieldName, FieldValue)
@@ -666,6 +652,9 @@ def add_analysisresult():
         error_message = str(e)
         print("ERROR (DB Exception):", error_message)
 
+        if "duplicate entry" in error_message.lower() and "analysisresult.PRIMARY" in error_message:
+            return jsonify({"error": "This analysis result already exists for the given project, post, and field."}), 400
+
         if "foreign key constraint fails" in error_message.lower():
             if "ProjectName" in error_message:
                 return jsonify({"error": "Project name does not exist. Please make sure the project is added first."}), 400
@@ -676,6 +665,7 @@ def add_analysisresult():
 
     print("DEBUG: AnalysisResult inserted successfully.")
     return jsonify({"status": "success"}), 201
+
 
 @app.route("/query/posts-by-media", methods=["GET"])
 def query_posts_by_media():
