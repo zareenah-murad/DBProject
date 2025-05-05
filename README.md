@@ -1,4 +1,4 @@
-# CS 5330: Social Media Analysis & Experiment Platform
+# CS 5330: Social Media Analysis Database System
 
 This project is for CS 5330. It is a full-stack web application for managing a database of an app that analyzes social media content through structured experiments. Users, posts, projects, fields, and analysis results are stored in a MySQL database, and exposed through a Flask REST API.
 
