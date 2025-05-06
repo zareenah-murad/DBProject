@@ -1,4 +1,4 @@
--- Active: 1745888060388@@127.0.0.1@3306@db_project
+-- Active: 1746560118688@@127.0.0.1@3306@db_project
 USE db_project;
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS Posts;
 DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS Institute;
 DROP TABLE IF EXISTS SocialMedia;
-
+DROP TABLE IF EXISTS Used_In;
 -- Create SocialMedia table
 CREATE TABLE SocialMedia (
     MediaName VARCHAR(100) PRIMARY KEY
@@ -37,6 +37,9 @@ CREATE TABLE Users (
     PRIMARY KEY (UserID),
     FOREIGN KEY (MediaName) REFERENCES SocialMedia(MediaName)
 );
+
+ALTER TABLE Users
+ADD CONSTRAINT unique_username_per_platform UNIQUE (Username, MediaName);
 
 -- Create Posts table
 CREATE TABLE Posts (

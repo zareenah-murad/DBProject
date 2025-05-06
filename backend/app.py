@@ -38,6 +38,8 @@ def home():
 from flask import request, jsonify
 import re
 
+from MySQLdb import IntegrityError
+
 @app.route("/add-user", methods=["POST", "OPTIONS"])
 def add_user():
     if request.method == "OPTIONS":
@@ -64,7 +66,7 @@ def add_user():
     gender = clean_str(data.get("gender"))
     is_verified = 1 if data.get("isVerified") else 0
 
-    print(f"DEBUG: Cleaned values -> userID: {user_id}, username: {username}, media: {media_name}")
+    print(f"DEBUG: Cleaned values -> username: {username}, media: {media_name}")
 
     try:
         age = int(data["age"]) if data.get("age") not in ('', None) else None
@@ -80,6 +82,7 @@ def add_user():
 
     sql_keywords = [";", "--", "drop", "insert", "delete", "update"]
     html_threats = ["<script", "<img", "<svg", "onerror", "onload", "javascript:"]
+
     for value in [username, media_name]:
         if any(bad in value.lower() for bad in sql_keywords):
             print(f"ERROR: SQL keyword detected in: {value}")
@@ -90,24 +93,24 @@ def add_user():
         if not value.isascii():
             print(f"ERROR: Non-ASCII characters found in: {value}")
             return jsonify({"error": "Fields must contain only ASCII characters"}), 400
-    
+
     if not re.match(r"^[A-Za-z0-9_.-]{1,50}$", username):
         return jsonify({"error": "Invalid username format (letters, numbers, underscore, period, dash)"}), 400
     if not re.match(r"^[A-Za-z0-9\s]{1,100}$", media_name):
         return jsonify({"error": "Invalid mediaName format (alphanumeric + space)"}), 400
-    
-    name_pattern = r"^[A-Za-z\s\-']{1,50}$"  # Allows letters, spaces, hyphens, apostrophes
+
+    name_pattern = r"^[A-Za-z\s\-']{1,50}$"
     for field_name, value in {"firstName": first_name, "lastName": last_name}.items():
         if value:
-            if not re.fullmatch(name_pattern, value):
-                print(f"ERROR: Invalid {field_name}: {value}")
-                return jsonify({
-                    "error": f"{field_name} must only contain letters, spaces, hyphens, or apostrophes (1–50 characters)"
-                }), 400
             if not value.isascii():
                 print(f"ERROR: Non-ASCII in {field_name}: {value}")
                 return jsonify({
                     "error": f"{field_name} must contain only ASCII characters"
+                }), 400
+            if not re.fullmatch(name_pattern, value):
+                print(f"ERROR: Invalid {field_name}: {value}")
+                return jsonify({
+                    "error": f"{field_name} must only contain letters, spaces, hyphens, or apostrophes (1–50 characters)"
                 }), 400
 
     cursor = db.cursor()
@@ -120,33 +123,33 @@ def add_user():
         print("ERROR checking SocialMedia:", str(e))
         return jsonify({"error": "Internal error validating SocialMedia"}), 500
 
-    # Platform-specific username check
     try:
-        cursor.execute("SELECT 1 FROM Users WHERE Username = %s AND MediaName = %s", (username, media_name))
-        if cursor.fetchone():
-            return jsonify({"error": "A user with this username already exists on this media platform."}), 400
-    except Exception as e:
-        print("ERROR checking for duplicate username:", str(e))
-        return jsonify({"error": "Internal error checking username duplication"}), 500
-
-    try:
+        # Attempt to insert; rely on DB-level unique constraint to prevent duplicates
         cursor.execute("""
             INSERT INTO Users (Username, MediaName, FirstName, LastName,
-                       BirthCountry, ResidenceCountry, Age, Gender, IsVerified)
+                               BirthCountry, ResidenceCountry, Age, Gender, IsVerified)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (username, media_name, first_name, last_name,
-            birth_country, residence_country, age, gender, is_verified))
-        
+              birth_country, residence_country, age, gender, is_verified))
         db.commit()
         user_id = cursor.lastrowid
 
+    except IntegrityError as e:
+        db.rollback()
+        error_msg = str(e).lower()
+        if "duplicate" in error_msg:
+            print("ERROR: Duplicate username for media platform.")
+            return jsonify({"error": "A user with this username already exists on this media platform."}), 400
+        elif "foreign key" in error_msg:
+            print("ERROR: Foreign key constraint failed.")
+            return jsonify({"error": "The media platform does not exist. Please check Media Name."}), 400
+        else:
+            print("ERROR: Integrity error during user insert:", str(e))
+            return jsonify({"error": "User already exists on this platform"}), 400
+
     except Exception as e:
         db.rollback()
-        error_message = str(e)
-        if "Duplicate entry" in error_message and "PRIMARY" in error_message:
-            return jsonify({"error": "A user with this User ID already exists. Please use a unique ID."}), 400
-        if "foreign key constraint" in error_message.lower():
-            return jsonify({"error": "The media platform does not exist. Please check Media Name."}), 400
+        print("ERROR inserting user:", str(e))
         return jsonify({"error": "An unexpected database error occurred. Please try again."}), 500
 
     print("DEBUG: User inserted successfully.")
@@ -472,10 +475,6 @@ def add_post():
         print("ERROR: Invalid PostID format")
         return jsonify({"error": "Invalid PostID format (letters, numbers, dashes, underscores only)"}), 400
 
-    if not re.match(r"^[A-Za-z0-9_-]{1,50}$", user_id):
-        print("ERROR: Invalid UserID format")
-        return jsonify({"error": "Invalid UserID format (letters, numbers, dashes, underscores only)"}), 400
-
     try:
         datetime.fromisoformat(post_datetime)
     except ValueError:
@@ -526,17 +525,25 @@ def add_post():
             city, state, country, likes, dislikes, has_multimedia
         ))
         db.commit()
-    except Exception as e:
-        db.rollback()
-        error_message = str(e)
-        print("ERROR (DB Exception):", error_message)
 
-        if "Duplicate entry" in error_message and "PRIMARY" in error_message:
+    except MySQLdb.IntegrityError as e:
+        db.rollback()
+        error_code = e.args[0]
+
+        if error_code == 1062:  # Duplicate entry
+            print("ERROR: Duplicate PostID")
             return jsonify({"error": "A post with this ID already exists. Please use a unique PostID."}), 400
 
-        if "foreign key constraint" in error_message.lower():
-            return jsonify({"error": "The UserID or RepostedByUserID does not exist in the Users table."}), 400
+        if error_code == 1452:  # Foreign key constraint fails
+            print("ERROR: Foreign key violation")
+            return jsonify({"error": "UserID or RepostedByUserID does not exist."}), 400
 
+        print("ERROR (IntegrityError):", str(e))
+        return jsonify({"error": f"Database integrity error: {str(e)}"}), 400
+
+    except Exception as e:
+        db.rollback()
+        print("ERROR inserting post:", str(e))
         return jsonify({"error": "An unexpected database error occurred. Please try again."}), 500
 
     print("DEBUG: Post inserted successfully.")
@@ -553,23 +560,26 @@ def mark_post_as_repost():
     if not post_id or not reposted_by_user_id or not repost_time:
         return jsonify({'error': 'postID, repostedByUserID, and repostTime are required.'}), 400
 
+    # Timestamp validation
+    try:
+        datetime.fromisoformat(repost_time)
+    except ValueError:
+        return jsonify({'error': 'repostTime must be a valid ISO datetime string.'}), 400
+
     try:
         cursor = db.cursor()
 
-        # Make sure the post exists
         cursor.execute("SELECT 1 FROM Posts WHERE PostID = %s", (post_id,))
         if cursor.fetchone() is None:
             return jsonify({'error': f'No post found with PostID {post_id}'}), 404
 
-        # Make sure the reposting user exists
         cursor.execute("SELECT 1 FROM Users WHERE UserID = %s", (reposted_by_user_id,))
         if cursor.fetchone() is None:
             return jsonify({'error': f'No user found with UserID {reposted_by_user_id}'}), 404
 
-        # Perform the update
         cursor.execute("""
             UPDATE Posts
-            SET RepostedByUserID = %s, RepostTime = %s
+            SET RepostedByUserID = %s, RepostDateTime = %s
             WHERE PostID = %s
         """, (reposted_by_user_id, repost_time, post_id))
         db.commit()

@@ -58,13 +58,21 @@ def test_posts_by_name_query(client):
 
 def test_experiment_results_query(client):
     client.post("/add-socialmedia", json={"mediaName": "MediaQ"})
-    client.post("/add-user", json={"userID": "uM", "username": "queryuser", "mediaName": "MediaQ", "age": 30})
+
+    res_user = client.post("/add-user", json={
+        "username": "queryuser",
+        "mediaName": "MediaQ",
+        "age": 30
+    })
+    user_id = res_user.json["userID"]
+
     client.post("/add-post", json={
         "PostID": "pExp",
-        "UserID": "uM",
+        "UserID": user_id,
         "PostText": "experiment-related content",
         "PostDateTime": "2025-05-01T10:00:00"
     })
+
     client.post("/add-institute", json={"instituteName": "Tech Institute"})
     client.post("/add-project", json={
         "projectName": "Experiment1",
@@ -74,7 +82,10 @@ def test_experiment_results_query(client):
         "startDate": "2025-01-01",
         "endDate": "2025-12-31"
     })
+
+    client.post("/add-used-in", json={"projectName": "Experiment1", "postID": "pExp"})
     client.post("/add-field", json={"fieldName": "Field1", "projectName": "Experiment1"})
+
     client.post("/add-analysisresult", json={
         "ProjectName": "Experiment1",
         "PostID": "pExp",
@@ -84,10 +95,20 @@ def test_experiment_results_query(client):
 
     res = client.get("/query/experiment-results?projectName=Experiment1")
     assert res.status_code == 200
-    assert len(res.json) == 1
-    assert res.json[0]["postID"] == "pExp"
-    assert res.json[0]["fieldName"] == "Field1"
-    assert res.json[0]["fieldValue"] == "Value1"
+
+    # Validate structure
+    assert "posts" in res.json
+    assert isinstance(res.json["posts"], list)
+    assert "fieldCoverage" in res.json
+    assert isinstance(res.json["fieldCoverage"], dict)
+
+    # Validate post with expected ID and analysis result exists
+    posts = res.json["posts"]
+    matched_post = next((p for p in posts if p["postID"] == "pExp"), None)
+    assert matched_post is not None
+
+    analysis_fields = matched_post.get("analysis", [])
+    assert any(field["field"] == "Field1" and field["value"] == "Value1" for field in analysis_fields)
 
 def test_query_posts_by_time_missing_params(client):
     res = client.get("/query/posts-by-time")
