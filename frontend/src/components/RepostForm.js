@@ -69,17 +69,18 @@ function RepostForm() {
                 />
 
                 <div style={formStyles.buttonContainer}>
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        style={{
-                            ...formStyles.submitButton,
-                            backgroundColor: '#4CAF50',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        {isLoading ? 'Submitting...' : 'Mark as Repost'}
-                    </button>
+                <button
+                    type="submit"
+                    disabled={isLoading || !postID || !repostedByUserID || !repostTime}
+                    style={{
+                        ...formStyles.submitButton,
+                        backgroundColor: (!postID || !repostedByUserID || !repostTime) ? '#cccccc' : '#4CAF50',
+                        cursor: (!postID || !repostedByUserID || !repostTime) ? 'not-allowed' : 'pointer'
+                    }}
+                >
+                    {isLoading ? 'Submitting...' : 'Mark as Repost'}
+                </button>
+
                 </div>
 
                 {message && (
