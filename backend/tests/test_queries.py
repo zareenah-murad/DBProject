@@ -1,12 +1,15 @@
 def test_posts_by_media_query(client):
     client.post("/add-socialmedia", json={"mediaName": "MediaQ"})
-    client.post("/add-user", json={"userID": "uM", "username": "queryuser", "mediaName": "MediaQ", "age": 30})
+    res_user = client.post("/add-user", json={"username": "queryuser", "mediaName": "MediaQ", "age": 30})
+    user_id = res_user.json["userID"]
+
     client.post("/add-post", json={
         "PostID": "pMedia",
-        "UserID": "uM",
+        "UserID": user_id,  # ✅ Use actual int
         "PostText": "media-related content",
         "PostDateTime": "2025-05-01T10:00:00"
     })
+
 
     res = client.get("/query/posts-by-media?mediaName=MediaQ")
     assert res.status_code == 200
@@ -21,10 +24,12 @@ def test_posts_by_time_range_returns_none(client):
 
 def test_posts_by_username_query(client):
     client.post("/add-socialmedia", json={"mediaName": "MediaQ"})
-    client.post("/add-user", json={"userID": "uM", "username": "queryuser", "mediaName": "MediaQ", "age": 30})
+    res_user = client.post("/add-user", json={"username": "queryuser", "mediaName": "MediaQ", "age": 30})
+    user_id = res_user.json["userID"]
+
     client.post("/add-post", json={
         "PostID": "pUser",
-        "UserID": "uM",
+        "UserID": user_id,
         "PostText": "user-specific content",
         "PostDateTime": "2025-05-01T10:00:00"
     })
@@ -36,17 +41,18 @@ def test_posts_by_username_query(client):
 
 def test_posts_by_name_query(client):
     client.post("/add-socialmedia", json={"mediaName": "MediaQ"})
-    client.post("/add-user", json={
-        "userID": "uM",
+    res_user = client.post("/add-user", json={
         "username": "queryuser",
         "mediaName": "MediaQ",
         "firstName": "John",
         "lastName": "Doe",
         "age": 30
     })
+    user_id = res_user.json["userID"]
+
     client.post("/add-post", json={
         "PostID": "pName",
-        "UserID": "uM",
+        "UserID": user_id,
         "PostText": "name-specific content",
         "PostDateTime": "2025-05-01T10:00:00"
     })

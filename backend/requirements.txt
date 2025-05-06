@@ -9,3 +9,4 @@ MarkupSafe==2.1.5
 mysqlclient==2.2.7
 pipi==1.0.1
 Werkzeug==3.0.6
+pytest==8.1.1

@@ -1,4 +1,4 @@
--- Active: 1746560118688@@127.0.0.1@3306@db_project
+-- Active: 1745888060388@@127.0.0.1@3306@db_project
 USE db_project;
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -52,8 +52,8 @@ CREATE TABLE Posts (
     City VARCHAR(100),
     State VARCHAR(100),
     Country VARCHAR(100),
-    Likes INT,
-    Dislikes INT,
+    Likes INT DEFAULT 0,
+    Dislikes INT DEFAULT 0,
     HasMultimedia BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (PostID),
     FOREIGN KEY (UserID) REFERENCES Users(UserID),

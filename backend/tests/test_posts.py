@@ -104,7 +104,7 @@ def test_post_with_nonexistent_userid_fails(client):
 
     res = client.post("/add-post", json={
         "PostID": "pNonexistentUser",
-        "UserID": "nonexistentUser",
+        "UserID": 99999,
         "PostText": "This user does not exist",
         "PostDateTime": "2025-05-05T10:00:00",
         "Likes": 0,

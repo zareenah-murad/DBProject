@@ -8,18 +8,18 @@ def test_full_workflow_end_to_end(client):
     assert res.status_code == 201
 
     # Step 3: Add User
-    res = client.post("/add-user", json={
-        "userID": "u123",
+    res_user = client.post("/add-user", json={
         "username": "testuser",
         "mediaName": "FullTestMedia",
         "age": 25
     })
-    assert res.status_code == 201
+    assert res_user.status_code == 201
+    user_id = res_user.json["userID"]
 
     # Step 4: Add Post
     res = client.post("/add-post", json={
         "PostID": "post123",
-        "UserID": "u123",
+        "UserID": user_id,
         "PostText": "Analyzing sentiment in this post.",
         "PostDateTime": "2025-05-05T10:00:00"
     })
@@ -43,7 +43,14 @@ def test_full_workflow_end_to_end(client):
     })
     assert res.status_code == 201
 
-    # Step 7: Add Analysis Result
+    # Step 7: Add Used_In entry
+    res = client.post("/add-used-in", json={
+        "projectName": "AnalysisProj",
+        "postID": "post123"
+    })
+    assert res.status_code == 201
+
+    # Step 8: Add Analysis Result
     res = client.post("/add-analysisresult", json={
         "ProjectName": "AnalysisProj",
         "PostID": "post123",
@@ -52,10 +59,11 @@ def test_full_workflow_end_to_end(client):
     })
     assert res.status_code == 201
 
-    # Step 8: Query Analysis Result
+    # Step 9: Query Analysis Result
     res = client.get("/query/experiment-results?projectName=AnalysisProj")
     assert res.status_code == 200
-    assert len(res.json) == 1
-    assert res.json[0]["postID"] == "post123"
-    assert res.json[0]["fieldName"].lower() == "sentiment"
-    assert res.json[0]["fieldValue"] == "Positive"
+
+    posts = res.json["posts"]
+    assert any(p["postID"] == "post123" and
+               any(a["field"] == "Sentiment" and a["value"] == "Positive" for a in p["analysis"])
+               for p in posts)
