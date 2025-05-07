@@ -951,7 +951,7 @@ def query_posts_by_username():
 
         user_id = user_result[0]
 
-        # Now fetch their posts
+        # Fetch posts and associated projects
         cursor.execute("""
             SELECT p.PostID, p.PostText, p.PostDateTime, GROUP_CONCAT(ui.ProjectName)
             FROM Posts p
@@ -965,9 +965,8 @@ def query_posts_by_username():
         result = [
             {
                 'postID': row[0],
-                'username': username,
-                'mediaName': media_name,
                 'content': row[1],
+                'postedBy': f"{username} @ {media_name}",
                 'postDateTime': row[2].isoformat() if row[2] else None,
                 'projects': row[3].split(',') if row[3] else []
             }
@@ -978,6 +977,8 @@ def query_posts_by_username():
     except Exception as e:
         print('ERROR during query_posts_by_username:', e)
         return jsonify({'error': 'Internal server error'}), 500
+
+
 
 @app.route("/query/posts-by-name", methods=["GET"])
 def query_posts_by_name():

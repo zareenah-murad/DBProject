@@ -36,6 +36,14 @@ function AssociatePostWithProjectForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    console.log("Final values to submit:", {
+      postID: selectedPostID,
+      parsedID: parseInt(selectedPostID),
+      projectName: selectedProject
+    });
+  
+    
     try {      
         await axios.post('http://localhost:5050/add-used-in', {
             postID: parseInt(selectedPostID),
@@ -91,19 +99,19 @@ function AssociatePostWithProjectForm() {
         </button>
 
         {posts.length > 0 && (
-          <select
+            <select
             value={selectedPostID}
             onChange={(e) => setSelectedPostID(e.target.value)}
             style={formStyles.input}
-            >
+          >
             <option value="">Select a Post</option>
+            console.log("Posts received:", posts);
             {posts.map((p) => (
-                <option key={p.postID} value={p.postID}>
-                {p.postID}: {p.content?.substring(0, 50)}...
-                </option>
+              <option key={p.postID} value={p.postID}>
+              {p.content?.substring(0, 50)}...
+            </option>            
             ))}
-            </select>
-        
+          </select>
         )}
 
         <select
