@@ -12,21 +12,22 @@ def test_query_posts_by_project_success(client):
     res_user = client.post("/add-user", json={"username": "userY", "mediaName": "MediaY", "age": 30})
     user_id = res_user.json["userID"]
 
-    client.post("/add-post", json={
-        "PostID": "postY1",
+    res_post = client.post("/add-post", json={
         "UserID": user_id,
         "PostText": "Project related post",
         "PostDateTime": "2025-05-05T10:00:00"
     })
+    post_id = res_post.json["postID"]
 
-    client.post("/add-used-in", json={"projectName": "ProjY", "postID": "postY1"})
+    client.post("/add-used-in", json={"projectName": "ProjY", "postID": post_id})
 
     res = client.get("/query/posts-by-project?projectName=ProjY")
     assert res.status_code == 200
     assert len(res.json) == 1
-    assert res.json[0]["postID"] == "postY1"
+    assert res.json[0]["postID"] == post_id
     assert res.json[0]["username"] == "userY"
     assert res.json[0]["mediaName"] == "MediaY"
+
 
 def test_query_posts_by_project_missing_param(client):
     res = client.get("/query/posts-by-project")
@@ -71,21 +72,26 @@ def test_query_project_multiple_posts_sorted(client):
     user_id = res_user.json["userID"]
 
     posts = [
-        ("sortPost1", "2025-05-01T10:00:00"),
-        ("sortPost2", "2025-05-03T10:00:00"),
-        ("sortPost3", "2025-05-02T10:00:00")
+        ("2025-05-01T10:00:00"),
+        ("2025-05-03T10:00:00"),
+        ("2025-05-02T10:00:00")
     ]
 
-    for pid, dt in posts:
-        client.post("/add-post", json={
-            "PostID": pid,
+    inserted_ids = []
+    for dt in posts:
+        res_post = client.post("/add-post", json={
             "UserID": user_id,
             "PostText": "Check sorting",
             "PostDateTime": dt
         })
-        client.post("/add-used-in", json={"projectName": "ProjSort", "postID": pid})
+        post_id = res_post.json["postID"]
+        inserted_ids.append((post_id, dt))
+        client.post("/add-used-in", json={"projectName": "ProjSort", "postID": post_id})
+
+    # Sort descending by PostDateTime for expected order
+    expected_order = [pid for pid, _ in sorted(inserted_ids, key=lambda x: x[1], reverse=True)]
 
     res = client.get("/query/posts-by-project?projectName=ProjSort")
     assert res.status_code == 200
-    post_ids = [post["postID"] for post in res.json]
-    assert post_ids == ["sortPost2", "sortPost3", "sortPost1"]  # DESC order
+    returned_ids = [post["postID"] for post in res.json]
+    assert returned_ids == expected_order

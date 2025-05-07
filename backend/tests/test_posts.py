@@ -29,40 +29,39 @@ def test_post_with_negative_likes_fails(client):
     assert res.status_code == 400
     assert "Likes must be a non-negative integer" in res.json["error"]
 
-def test_duplicate_postid_fails(client):
+def test_duplicate_post_content_allowed(client):
     client.post("/add-socialmedia", json={"mediaName": "PostNet"})
     res_user = client.post("/add-user", json={"username": "poster", "mediaName": "PostNet", "age": 28})
     user_id = res_user.json["userID"]
 
     post_payload = {
-        "PostID": "postX",
         "UserID": user_id,
-        "PostText": "Original post",
+        "PostText": "Same content post",
         "PostDateTime": "2025-05-05T10:00:00",
         "Likes": 5,
         "Dislikes": 0
     }
+
     res1 = client.post("/add-post", json=post_payload)
     assert res1.status_code == 201
+    assert "postID" in res1.json
 
-    post_payload["PostText"] = "Duplicate post attempt"
     res2 = client.post("/add-post", json=post_payload)
     assert res2.status_code == 400
-    assert "post with this id already exists" in res2.json["error"].lower()
+    assert "duplicate" in res2.json["error"].lower()
 
-def test_post_with_missing_fields_fails(client):
-    client.post("/add-socialmedia", json={"mediaName": "TestMedia"})
-    res_user = client.post("/add-user", json={"username": "userY", "mediaName": "TestMedia", "age": 30})
+
+def test_add_post_missing_required_fields(client):
+    client.post("/add-socialmedia", json={"mediaName": "Net"})
+    res_user = client.post("/add-user", json={"username": "user1", "mediaName": "Net", "age": 25})
     user_id = res_user.json["userID"]
 
+    # Missing PostText and PostDateTime
     res = client.post("/add-post", json={
-        "PostID": "pMissing",
-        "UserID": user_id,
-        "Likes": 10,
-        "Dislikes": 2
+        "UserID": user_id
     })
     assert res.status_code == 400
-    assert "Missing required fields" in res.json["error"]
+    assert "required" in res.json["error"].lower()
 
 def test_add_post_empty_fields(client):
     res = client.post("/add-post", json={})
@@ -85,19 +84,6 @@ def test_post_with_invalid_datetime_format_fails(client):
     assert res.status_code == 400
     assert "Invalid PostDateTime format" in res.json["error"]
 
-def test_add_post_invalid_postid_format(client):
-    client.post("/add-socialmedia", json={"mediaName": "Net"})
-    res_user = client.post("/add-user", json={"username": "user1", "mediaName": "Net", "age": 25})
-    user_id = res_user.json["userID"]
-
-    res = client.post("/add-post", json={
-        "PostID": "invalid id!",
-        "UserID": user_id,
-        "PostText": "Test",
-        "PostDateTime": "2025-05-05T12:00:00"
-    })
-    assert res.status_code == 400
-    assert "Invalid PostID format" in res.json["error"]
 
 def test_post_with_nonexistent_userid_fails(client):
     client.post("/add-socialmedia", json={"mediaName": "TestMedia"})

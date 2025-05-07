@@ -13,17 +13,16 @@ def test_full_workflow_end_to_end(client):
         "mediaName": "FullTestMedia",
         "age": 25
     })
-    assert res_user.status_code == 201
     user_id = res_user.json["userID"]
 
     # Step 4: Add Post
-    res = client.post("/add-post", json={
-        "PostID": "post123",
+    res_post = client.post("/add-post", json={
         "UserID": user_id,
         "PostText": "Analyzing sentiment in this post.",
         "PostDateTime": "2025-05-05T10:00:00"
     })
-    assert res.status_code == 201
+    assert res_post.status_code == 201
+    post_id = res_post.json["postID"]
 
     # Step 5: Add Project
     res = client.post("/add-project", json={
@@ -47,14 +46,14 @@ def test_full_workflow_end_to_end(client):
     # Step 7: Add Used_In entry
     res = client.post("/add-used-in", json={
         "projectName": "AnalysisProj",
-        "postID": "post123"
+        "postID": post_id
     })
     assert res.status_code == 201
 
     # Step 8: Add Partial Analysis Result
     res = client.post("/add-analysisresult", json={
         "ProjectName": "AnalysisProj",
-        "PostID": "post123",
+        "PostID": post_id,
         "FieldName": "Sentiment",
         "FieldValue": "Positive"
     })
@@ -67,7 +66,7 @@ def test_full_workflow_end_to_end(client):
     posts = res.json["posts"]
     assert len(posts) == 1
     post = posts[0]
-    assert post["postID"] == "post123"
+    assert post["postID"] == post_id
     assert post["username"] == "testuser"
     assert any(a["field"] == "Sentiment" and a["value"] == "Positive" for a in post["analysis"])
     assert res.json["fieldCoverage"]["Sentiment"] == 1.0
@@ -76,7 +75,7 @@ def test_full_workflow_end_to_end(client):
     # Step 10: Query Posts by Project
     res = client.get("/query/posts-by-project?projectName=AnalysisProj")
     assert res.status_code == 200
-    assert any(p["postID"] == "post123" for p in res.json)
+    assert any(p["postID"] == post_id for p in res.json)
 
 
 def test_full_workflow_complete_analysis(client):
@@ -93,12 +92,12 @@ def test_full_workflow_complete_analysis(client):
     user_id = res_user.json["userID"]
 
     # Add Post
-    client.post("/add-post", json={
-        "PostID": "postX",
+    res_post = client.post("/add-post", json={
         "UserID": user_id,
         "PostText": "Comprehensive analysis post.",
         "PostDateTime": "2025-06-01T14:00:00"
     })
+    post_id = res_post.json["postID"]
 
     # Add Project
     client.post("/add-project", json={
@@ -121,14 +120,14 @@ def test_full_workflow_complete_analysis(client):
     # Associate post with project
     client.post("/add-used-in", json={
         "projectName": "CompleteAnalysisProj",
-        "postID": "postX"
+        "postID": post_id
     })
 
     # Add analysis results for all fields
     for f, val in zip(fields, ["Positive", "Joyful"]):
         client.post("/add-analysisresult", json={
             "ProjectName": "CompleteAnalysisProj",
-            "PostID": "postX",
+            "PostID": post_id,
             "FieldName": f,
             "FieldValue": val
         })

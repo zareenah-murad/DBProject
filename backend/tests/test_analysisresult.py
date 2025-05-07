@@ -9,29 +9,33 @@ def test_duplicate_analysisresult_fails(client):
         "endDate": "2025-12-01"
     })
     client.post("/add-socialmedia", json={"mediaName": "ZZ"})
-    client.post("/add-user", json={"username": "zuser", "mediaName": "ZZ", "age": 30})
-    client.post("/add-post", json={
-        "PostID": "postZ",
-        "UserID": "uZ",  # Replace with dynamic lookup if needed
-        "PostText": "Z-post",
-        "PostDateTime": "2025-05-05T12:00:00"
+    res_user = client.post("/add-user", json={"username": "zuser", "mediaName": "ZZ", "age": 30})
+    user_id = res_user.json["userID"]
+
+    res_post = client.post("/add-post", json={
+        "UserID": user_id,
+        "PostText": "Cross-project post",
+        "PostDateTime": "2025-05-05T15:00:00"
     })
-    client.post("/add-used-in", json={"projectName": "proj1", "postID": "postZ"})
+    post_id = res_post.json["postID"]
+
+    client.post("/add-used-in", json={"projectName": "proj1", "postID": post_id})
     client.post("/add-field", json={"projectName": "proj1", "fieldName": "sentiment"})
 
     client.post("/add-analysisresult", json={
         "ProjectName": "proj1",
-        "PostID": "postZ",
+        "PostID": post_id,
         "FieldName": "sentiment",
         "FieldValue": "positive"
     })
 
     res = client.post("/add-analysisresult", json={
         "ProjectName": "proj1",
-        "PostID": "postZ",
+        "PostID": post_id,
         "FieldName": "sentiment",
         "FieldValue": "neutral"
     })
+
     assert res.status_code == 400
 
 
@@ -53,28 +57,22 @@ def test_post_used_in_multiple_projects(client):
     res_user = client.post("/add-user", json={"username": "puser", "mediaName": "SNet", "age": 30})
     user_id = res_user.json["userID"]
 
-    client.post("/add-post", json={
-        "PostID": "sharedPost",
+    res_post = client.post("/add-post", json={
         "UserID": user_id,
         "PostText": "Cross-project post",
         "PostDateTime": "2025-05-05T15:00:00"
     })
+    post_id = res_post.json["postID"]
 
     for pname in ["P1", "P2"]:
-        client.post("/add-used-in", json={"projectName": pname, "postID": "sharedPost"})
+        client.post("/add-used-in", json={"projectName": pname, "postID": post_id})
         res = client.post("/add-analysisresult", json={
             "ProjectName": pname,
-            "PostID": "sharedPost",
+            "PostID": post_id,
             "FieldName": "engagement",
             "FieldValue": "high"
         })
         assert res.status_code == 201
-
-
-def test_query_experiment_results_nonexistent_project(client):
-    res = client.get("/query/experiment-results?projectName=nonexistent_proj")
-    assert res.status_code == 404
-    assert "no project found" in res.json["error"].lower()
 
 
 def test_query_experiment_results_with_no_analysis(client):
@@ -90,19 +88,28 @@ def test_query_experiment_results_with_no_analysis(client):
     client.post("/add-socialmedia", json={"mediaName": "MTest"})
     res_user = client.post("/add-user", json={"username": "testuser", "mediaName": "MTest", "age": 22})
     user_id = res_user.json["userID"]
-    client.post("/add-post", json={
-        "PostID": "noAnalysisPost",
+
+    res_post = client.post("/add-post", json={
         "UserID": user_id,
         "PostText": "No analysis for this post",
         "PostDateTime": "2025-05-05T10:00:00"
     })
-    client.post("/add-used-in", json={"projectName": "ProjA", "postID": "noAnalysisPost"})
+    post_id = res_post.json["postID"]
+
+    client.post("/add-used-in", json={"projectName": "ProjA", "postID": post_id})
 
     res = client.get("/query/experiment-results?projectName=ProjA")
     assert res.status_code == 200
     assert len(res.json["posts"]) == 1
     assert res.json["posts"][0]["analysis"] == []
     assert res.json["fieldCoverage"] == {}
+
+
+
+def test_query_experiment_results_nonexistent_project(client):
+    res = client.get("/query/experiment-results?projectName=nonexistent_proj")
+    assert res.status_code == 404
+    assert "no project found" in res.json["error"].lower()
 
 
 def test_query_experiment_results_partial_coverage(client):
@@ -121,19 +128,20 @@ def test_query_experiment_results_partial_coverage(client):
     res_user = client.post("/add-user", json={"username": "user1", "mediaName": "MTest2", "age": 28})
     user_id = res_user.json["userID"]
 
+    post_ids = []
     for i in range(2):
-        pid = f"partialPost{i}"
-        client.post("/add-post", json={
-            "PostID": pid,
+        res_post = client.post("/add-post", json={
             "UserID": user_id,
             "PostText": f"Post {i}",
             "PostDateTime": f"2025-05-0{i+1}T12:00:00"
         })
-        client.post("/add-used-in", json={"projectName": "ProjB", "postID": pid})
+        post_id = res_post.json["postID"]
+        post_ids.append(post_id)
+        client.post("/add-used-in", json={"projectName": "ProjB", "postID": post_id})
 
     client.post("/add-analysisresult", json={
         "ProjectName": "ProjB",
-        "PostID": "partialPost0",
+        "PostID": post_ids[0],
         "FieldName": "sentiment",
         "FieldValue": "neutral"
     })
@@ -196,19 +204,19 @@ def test_analysisresult_field_not_in_project(client):
     res_user = client.post("/add-user", json={"username": "zuser", "mediaName": "ZZ", "age": 30})
     user_id = res_user.json["userID"]
 
-    client.post("/add-post", json={
-        "PostID": "postZ",
+    res_post = client.post("/add-post", json={
         "UserID": user_id,
         "PostText": "Z-post",
         "PostDateTime": "2025-05-05T12:00:00"
     })
+    post_id = res_post.json["postID"]
 
-    client.post("/add-used-in", json={"projectName": "proj1", "postID": "postZ"})
+    client.post("/add-used-in", json={"projectName": "proj1", "postID": post_id})
 
-    # Don't add the field
+    # Don't add the field to proj1
     res = client.post("/add-analysisresult", json={
         "ProjectName": "proj1",
-        "PostID": "postZ",
+        "PostID": post_id,
         "FieldName": "not_existing",
         "FieldValue": "value"
     })
@@ -223,11 +231,34 @@ def test_analysisresult_field_not_in_project(client):
 
 
 def test_analysisresult_invalid_fieldname_format(client):
+    client.post("/add-institute", json={"instituteName": "inst1"})
+    client.post("/add-project", json={
+        "projectName": "proj1",
+        "managerFirstName": "A",
+        "managerLastName": "B",
+        "instituteName": "inst1",
+        "startDate": "2025-01-01",
+        "endDate": "2025-12-01"
+    })
+    client.post("/add-socialmedia", json={"mediaName": "ZZ"})
+    res_user = client.post("/add-user", json={"username": "zuser", "mediaName": "ZZ", "age": 30})
+    user_id = res_user.json["userID"]
+
+    res_post = client.post("/add-post", json={
+        "UserID": user_id,
+        "PostText": "Invalid field test",
+        "PostDateTime": "2025-05-05T12:00:00"
+    })
+    post_id = res_post.json["postID"]
+
+    client.post("/add-used-in", json={"projectName": "proj1", "postID": post_id})
+
     res = client.post("/add-analysisresult", json={
         "ProjectName": "proj1",
-        "PostID": "postZ",
+        "PostID": post_id,
         "FieldName": "bad@field!",
         "FieldValue": "neutral"
     })
+
     assert res.status_code == 400
     assert "invalid fieldname format" in res.json["error"].lower()

@@ -72,12 +72,12 @@ def test_experiment_results_query(client):
     })
     user_id = res_user.json["userID"]
 
-    client.post("/add-post", json={
-        "PostID": "pExp",
+    res_post = client.post("/add-post", json={
         "UserID": user_id,
         "PostText": "experiment-related content",
         "PostDateTime": "2025-05-01T10:00:00"
     })
+    post_id = res_post.json["postID"]
 
     client.post("/add-institute", json={"instituteName": "Tech Institute"})
     client.post("/add-project", json={
@@ -89,12 +89,12 @@ def test_experiment_results_query(client):
         "endDate": "2025-12-31"
     })
 
-    client.post("/add-used-in", json={"projectName": "Experiment1", "postID": "pExp"})
+    client.post("/add-used-in", json={"projectName": "Experiment1", "postID": post_id})
     client.post("/add-field", json={"fieldName": "Field1", "projectName": "Experiment1"})
 
     client.post("/add-analysisresult", json={
         "ProjectName": "Experiment1",
-        "PostID": "pExp",
+        "PostID": post_id,
         "FieldName": "Field1",
         "FieldValue": "Value1"
     })
@@ -110,7 +110,7 @@ def test_experiment_results_query(client):
 
     # Validate post with expected ID and analysis result exists
     posts = res.json["posts"]
-    matched_post = next((p for p in posts if p["postID"] == "pExp"), None)
+    matched_post = next((p for p in posts if p["postID"] == post_id), None)
     assert matched_post is not None
 
     analysis_fields = matched_post.get("analysis", [])
