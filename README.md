@@ -48,6 +48,12 @@ frontend/
    ```bash
    pip install -r requirements.txt
    ```
+   If encountering errors on Mac:
+   ```bash
+   brew install pkg-config
+   brew install mysql
+   pip install -r requirements.txt
+   ```
 
 4. **Set up your MySQL DB**
    - Make sure MySQL is running.
@@ -86,9 +92,9 @@ frontend/
 
 ## 💻 Frontend Setup
 
-1. **Navigate to frontend folder**
+1. **Create new terminal and navigate to frontend folder**
    ```bash
-   cd ../frontend
+   cd frontend
    ```
 
 2. **Install dependencies**
@@ -107,7 +113,7 @@ frontend/
 
 ## ✅ Running Tests
 
-1. **Navigate to backend folder**
+1. **Create new terminal and navigate to backend folder**
    ```bash
    cd backend
    ```
