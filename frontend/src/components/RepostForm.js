@@ -8,8 +8,18 @@ function RepostForm() {
     const [postID, setPostID] = useState('');
     const [repostedByUserID, setRepostedByUserID] = useState('');
     const [repostTime, setRepostTime] = useState('');
+    const [showFutureWarning, setShowFutureWarning] = useState(false);
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    const handleRepostTimeChange = (e) => {
+        const inputTime = e.target.value;
+        setRepostTime(inputTime);
+
+        const selected = new Date(inputTime);
+        const now = new Date();
+        setShowFutureWarning(selected > now);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -63,24 +73,28 @@ function RepostForm() {
                 <input
                     type="datetime-local"
                     value={repostTime}
-                    onChange={(e) => setRepostTime(e.target.value)}
+                    onChange={handleRepostTimeChange}
                     required
                     style={formStyles.input}
                 />
+                {showFutureWarning && (
+                    <p style={{ fontSize: '0.9em', color: '#c62828', marginTop: '-10px', marginBottom: '15px' }}>
+                        Warning: Repost time is set in the future.
+                    </p>
+                )}
 
                 <div style={formStyles.buttonContainer}>
-                <button
-                    type="submit"
-                    disabled={isLoading || !postID || !repostedByUserID || !repostTime}
-                    style={{
-                        ...formStyles.submitButton,
-                        backgroundColor: (!postID || !repostedByUserID || !repostTime) ? '#cccccc' : '#4CAF50',
-                        cursor: (!postID || !repostedByUserID || !repostTime) ? 'not-allowed' : 'pointer'
-                    }}
-                >
-                    {isLoading ? 'Submitting...' : 'Mark as Repost'}
-                </button>
-
+                    <button
+                        type="submit"
+                        disabled={isLoading || !postID || !repostedByUserID || !repostTime}
+                        style={{
+                            ...formStyles.submitButton,
+                            backgroundColor: (!postID || !repostedByUserID || !repostTime) ? '#cccccc' : '#4CAF50',
+                            cursor: (!postID || !repostedByUserID || !repostTime) ? 'not-allowed' : 'pointer'
+                        }}
+                    >
+                        {isLoading ? 'Submitting...' : 'Mark as Repost'}
+                    </button>
                 </div>
 
                 {message && (

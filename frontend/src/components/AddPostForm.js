@@ -33,6 +33,8 @@ function AddPostForm() {
 
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [futureWarning, setFutureWarning] = useState('');
+
 
 
     const handleCountryChange = (e) => {
@@ -52,31 +54,41 @@ function AddPostForm() {
       setFormData({ ...formData, city: e.target.value });
     };
 
-
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        const now = new Date().toISOString();
         let newValue = value;
-
-        // Validation for likes and dislikes
+    
+        // Handle likes/dislikes
         if ((name === 'likes' || name === 'dislikes') && value !== '') {
             const numValue = parseInt(value);
-            if (isNaN(numValue) || numValue < 0) {
-                return; // Don't update if invalid
-            }
+            if (isNaN(numValue) || numValue < 0) return;
         }
-
-        // Validation for repostTime
+    
+        // Future time warning
+        if (name === 'postTime' || name === 'repostTime') {
+            const inputTime = new Date(value);
+            const now = new Date();
+        
+            if (inputTime > now) {
+                setFutureWarning(`Warning: ${name === 'postTime' ? 'Post' : 'Repost'} time is in the future.`);
+            } else {
+                setFutureWarning('');
+            }
+        }        
+    
+        // Repost before post validation
         if (name === 'repostTime' && formData.postTime && value < formData.postTime) {
-            setMessage('Repost time cannot be earlier than post time');
+            setMessage('Repost time cannot be earlier than post time.');
             return;
         }
-
+    
         setFormData({
             ...formData,
             [name]: type === 'checkbox' ? checked : newValue,
         });
         setMessage('');
-    };
+    };    
 
     const handleSubmit = async (e) => {
     e.preventDefault();
@@ -185,6 +197,9 @@ function AddPostForm() {
                         style={formStyles.input}
                     />
                 </div>
+                {futureWarning && formData.postTime && futureWarning.includes('Post') && (
+                    <p style={{ color: '#c62828', fontSize: '0.9em', marginTop: '5px' }}>{futureWarning}</p>
+                )}
                 <input
                     name="repostedByUserID"
                     placeholder="Reposted By User ID"
@@ -202,6 +217,9 @@ function AddPostForm() {
                         style={formStyles.input}
                     />
                 </div>
+                {futureWarning && formData.repostTime && futureWarning.includes('Repost') && (
+                    <p style={{ color: '#c62828', fontSize: '0.9em', marginTop: '5px' }}>{futureWarning}</p>
+                )}
                 <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
                     {/* Country dropdown */}
                     <select

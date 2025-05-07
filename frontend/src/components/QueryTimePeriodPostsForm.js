@@ -10,6 +10,7 @@ function QueryTimePeriodPostsForm() {
     const [results, setResults] = useState([]);
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [futureWarnings, setFutureWarnings] = useState({ start: '', end: '' });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -59,12 +60,22 @@ function QueryTimePeriodPostsForm() {
                         type="datetime-local"
                         value={startDate}
                         onChange={(e) => {
-                            setStartDate(e.target.value);
+                            const val = e.target.value;
+                            setStartDate(val);
                             setMessage('');
+                            const selected = new Date(val);
+                            const now = new Date();
+                            setFutureWarnings(prev => ({
+                                ...prev,
+                                start: selected > now ? 'Warning: Start date is in the future.' : ''
+                            }));
                         }}
                         required
                         style={formStyles.input}
                     />
+                    {futureWarnings.start && (
+                        <p style={{ color: '#c62828', fontSize: '0.9em', marginTop: '5px' }}>{futureWarnings.start}</p>
+                    )}
                 </div>
 
                 <div style={{ marginBottom: '10px' }}>
@@ -73,12 +84,23 @@ function QueryTimePeriodPostsForm() {
                         type="datetime-local"
                         value={endDate}
                         onChange={(e) => {
-                            setEndDate(e.target.value);
+                            const val = e.target.value;
+                            setEndDate(val);
                             setMessage('');
+                            const selected = new Date(val);
+                            const now = new Date();
+                            setFutureWarnings(prev => ({
+                                ...prev,
+                                end: selected > now ? 'Warning: End date is in the future.' : ''
+                            }));
                         }}
                         required
                         style={formStyles.input}
                     />
+                    {futureWarnings.end && (
+                        <p style={{ color: '#c62828', fontSize: '0.9em', marginTop: '5px' }}>{futureWarnings.end}</p>
+                    )}
+
                 </div>
 
                 {startDate && endDate && startDate > endDate && (
@@ -90,7 +112,6 @@ function QueryTimePeriodPostsForm() {
                         End date must be after start date
                     </p>
                 )}
-
                 <div style={formStyles.buttonContainer}>
                     <button 
                         type="submit"

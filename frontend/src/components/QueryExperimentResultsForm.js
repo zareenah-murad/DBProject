@@ -129,7 +129,7 @@ return (
                             }}>
                                 <h3 style={{ marginBottom: '10px' }}>Results:</h3>
                                 <ul style={{ listStyle: 'none', padding: 0 }}>
-                                    {results.map((post, index) => (
+                                {results.posts.map((post, index) => (
                                         <li key={index} style={{ padding: '10px', marginBottom: '10px', backgroundColor: 'white', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                                             <p><strong>Username:</strong> {post.username}</p>
                                             <p><strong>Name:</strong> {post.firstName} {post.lastName}</p>

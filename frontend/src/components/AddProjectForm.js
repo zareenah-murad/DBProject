@@ -16,6 +16,8 @@ function AddProjectForm() {
 
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [startDateWarning, setStartDateWarning] = useState('');
+
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -25,6 +27,18 @@ function AddProjectForm() {
             setMessage('End date cannot be earlier than start date');
             return;
         }
+
+        if (name === 'startDate') {
+            const inputDate = new Date(value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // ignore time
+        
+            if (inputDate > today) {
+                setStartDateWarning('Warning: start date in the future.');
+            } else {
+                setStartDateWarning('');
+            }
+        }        
 
         setFormData({
             ...formData,
@@ -138,6 +152,12 @@ function AddProjectForm() {
                         style={formStyles.input}
                     />
                 </div>
+                {startDateWarning && (
+                    <p style={{ color: '#c62828', fontSize: '0.9em', marginTop: '5px' }}>
+                        {startDateWarning}
+                    </p>
+                )}
+
                 <div style={{ marginBottom: '10px' }}>
                     <div style={{ marginBottom: '5px', color: '#666' }}>End Date * (must be after start date)</div>
                     <input 
