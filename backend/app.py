@@ -94,8 +94,10 @@ def add_user():
             print(f"ERROR: Non-ASCII characters found in: {value}")
             return jsonify({"error": "Fields must contain only ASCII characters"}), 400
 
-    if not re.match(r"^[A-Za-z0-9_.-]{1,50}$", username):
-        return jsonify({"error": "Invalid username format (letters, numbers, underscore, period, dash)"}), 400
+    if not re.fullmatch(r"^[a-zA-Z0-9](?!.*[_.]{2})[a-zA-Z0-9._]{1,28}[a-zA-Z0-9]$", username):
+        return jsonify({
+            "error": "Invalid username format. Must be 3–30 characters, start and end with alphanumeric, only letters/numbers/periods/underscores, no consecutive symbols."
+        }), 400
     if not re.match(r"^[A-Za-z0-9\s]{1,100}$", media_name):
         return jsonify({"error": "Invalid mediaName format (alphanumeric + space)"}), 400
 

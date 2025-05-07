@@ -131,10 +131,18 @@ def test_add_user_rejects_non_ascii(client, field, value):
 
 # Test invalid username format
 @pytest.mark.parametrize("invalid_username", [
-    "user name",      # Space not allowed
-    "user@",          # @ is not allowed
-    "user!",          # Exclamation
-    "a" * 51          # Exceeds 50 characters
+    "us",               # Too short
+    "this_is_way_too_long_for_a_username_to_be_valid_now",  # Too long (>30)
+    "user..name",       # Double period
+    "_username",        # Starts with underscore
+    "username_",        # Ends with underscore
+    ".username",        # Starts with period
+    "username.",        # Ends with period
+    "user__name",       # Double underscore
+    "user name",        # Space not allowed
+    "user@",            # @ not allowed
+    "user!"             # Exclamation mark
+    "a" * 31          # Exceeds 30 characters
 ])
 def test_add_user_invalid_username_format(client, invalid_username):
     client.post("/add-socialmedia", json={"mediaName": "ValidMedia2"})

@@ -25,7 +25,7 @@ CREATE TABLE Institute (
 -- Create Users table
 CREATE TABLE Users (
     UserID INT AUTO_INCREMENT,
-    Username VARCHAR(100) NOT NULL,
+    Username VARCHAR(30) NOT NULL,
     MediaName VARCHAR(100) NOT NULL,
     FirstName VARCHAR(100),
     LastName VARCHAR(100),
@@ -35,7 +35,12 @@ CREATE TABLE Users (
     Gender VARCHAR(50),
     IsVerified BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (UserID),
-    FOREIGN KEY (MediaName) REFERENCES SocialMedia(MediaName)
+    FOREIGN KEY (MediaName) REFERENCES SocialMedia(MediaName),
+    UNIQUE (Username, MediaName),
+    CHECK (
+        LENGTH(Username) BETWEEN 3 AND 30 AND
+        Username REGEXP '^[a-zA-Z0-9](?!.*[_.]{2})[a-zA-Z0-9._]*[a-zA-Z0-9]$'
+    )
 );
 
 ALTER TABLE Users
