@@ -163,6 +163,22 @@ This tool allows users to store, organize, and query social media text posts and
                     >
                         Mark Post as Reposted
                     </button>
+
+                    <button
+                        style={{
+                            padding: '10px 15px',
+                            cursor: 'pointer',
+                            backgroundColor: '#f8f8f8',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            textAlign: 'left',
+                            transition: 'all 0.2s'
+                        }}
+                        onClick={() => navigate('/associate-post-project')}
+                    >
+                        Associate Post with Project
+                    </button>
+
                     <div></div>
                 </div>
             </div>

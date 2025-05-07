@@ -5,12 +5,20 @@ import { useNavigate } from 'react-router-dom';
 
 function RepostForm() {
     const navigate = useNavigate();
-    const [postID, setPostID] = useState('');
-    const [repostedByUserID, setRepostedByUserID] = useState('');
+
+    const [username, setUsername] = useState('');
+    const [mediaName, setMediaName] = useState('');
+    const [repostUsername, setRepostUsername] = useState('');
+    const [repostMediaName, setRepostMediaName] = useState('');
     const [repostTime, setRepostTime] = useState('');
-    const [showFutureWarning, setShowFutureWarning] = useState(false);
+    const [posts, setPosts] = useState([]);
+    const [selectedPostID, setSelectedPostID] = useState('');
+    const [selectedPost, setSelectedPost] = useState(null);
+
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showFutureWarning, setShowFutureWarning] = useState(false);
+    const [invalidTimeWarning, setInvalidTimeWarning] = useState('');
 
     const handleRepostTimeChange = (e) => {
         const inputTime = e.target.value;
@@ -19,6 +27,33 @@ function RepostForm() {
         const selected = new Date(inputTime);
         const now = new Date();
         setShowFutureWarning(selected > now);
+
+        if (selectedPost?.postDateTime && selected < new Date(selectedPost.postDateTime)) {
+            setInvalidTimeWarning("Repost time cannot be before the original post time.");
+        } else {
+            setInvalidTimeWarning('');
+        }
+    };
+
+    const fetchPosts = async () => {
+        try {
+            const res = await axios.get(`http://localhost:5050/query/posts-by-username?username=${username}&mediaName=${mediaName}`);
+            setPosts(res.data);
+            setMessage('');
+            setSelectedPostID('');
+            setSelectedPost(null);
+        } catch (err) {
+            console.error(err);
+            setPosts([]);
+            setMessage('Error fetching posts for user.');
+        }
+    };
+
+    const handlePostSelect = (postID) => {
+        setSelectedPostID(postID);
+        const found = posts.find(p => p.postID === postID);
+        setSelectedPost(found || null);
+        setInvalidTimeWarning('');
     };
 
     const handleSubmit = async (e) => {
@@ -26,71 +61,121 @@ function RepostForm() {
         setIsLoading(true);
         setMessage('');
 
+        if (!selectedPost || new Date(repostTime) < new Date(selectedPost.postDateTime)) {
+            setMessage('Error: Repost time must be after the original post time.');
+            setIsLoading(false);
+            return;
+        }
+
         try {
-            const response = await axios.post('http://localhost:5050/update/repost', {
-                postID,
+            const res = await axios.get(`http://localhost:5050/query/user-id?username=${repostUsername}&mediaName=${repostMediaName}`);
+            const repostedByUserID = res.data.userID;
+
+            await axios.post('http://localhost:5050/update/repost', {
+                postID: selectedPostID,
                 repostedByUserID,
                 repostTime
             });
 
-            setMessage(response.data.message || 'Repost info updated!');
-        } catch (error) {
-            console.error(error);
-            setMessage(error.response?.data?.error || 'An error occurred.');
+            setMessage(`Success: Post ${selectedPostID} marked as reposted.`);
+        } catch (err) {
+            console.error(err);
+            setMessage(err.response?.data?.error || 'An error occurred.');
         } finally {
             setIsLoading(false);
         }
     };
 
+    const isFormValid = selectedPostID && repostUsername && repostMediaName && repostTime;
+
     return (
         <div style={formStyles.container}>
             <div style={formStyles.header}>
                 <h2>Mark a Post as Reposted</h2>
-                <button
-                    onClick={() => navigate('/')}
-                    style={formStyles.backButton}
-                >
+                <button onClick={() => navigate('/')} style={formStyles.backButton}>
                     Back to Menu
                 </button>
             </div>
             <form onSubmit={handleSubmit}>
                 <input
-                    type="text"
-                    placeholder="Post ID *"
-                    value={postID}
-                    onChange={(e) => setPostID(e.target.value)}
-                    required
+                    placeholder="Original Post Username *"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     style={formStyles.input}
                 />
                 <input
-                    type="text"
-                    placeholder="Reposted By User ID *"
-                    value={repostedByUserID}
-                    onChange={(e) => setRepostedByUserID(e.target.value)}
-                    required
+                    placeholder="Original Post Media Platform *"
+                    value={mediaName}
+                    onChange={(e) => setMediaName(e.target.value)}
+                    style={formStyles.input}
+                />
+            <div style={{ marginBottom: '16px' }}>
+                <button
+                    type="button"
+                    onClick={fetchPosts}
+                    disabled={!username || !mediaName}
+                    style={{
+                        ...formStyles.submitButton,
+                        backgroundColor: (!username || !mediaName) ? '#ccc' : '#4CAF50',
+                        cursor: (!username || !mediaName) ? 'not-allowed' : 'pointer'
+                    }}
+                >
+                    Fetch Posts
+                </button>
+                    </div>
+
+                {posts.length > 0 && (
+                    <select
+                        value={selectedPostID}
+                        onChange={(e) => handlePostSelect(e.target.value)}
+                        style={formStyles.input}
+                    >
+                        <option value="">Select a Post</option>
+                        {posts.map(p => (
+                            <option key={p.postID} value={p.postID}>
+                                {p.postID}: {p.content?.slice(0, 60)}...
+                            </option>
+                        ))}
+                    </select>
+                )}
+
+                <input
+                    placeholder="Reposted By Username *"
+                    value={repostUsername}
+                    onChange={(e) => setRepostUsername(e.target.value)}
+                    style={formStyles.input}
+                />
+                <input
+                    placeholder="Reposted By Media Platform *"
+                    value={repostMediaName}
+                    onChange={(e) => setRepostMediaName(e.target.value)}
                     style={formStyles.input}
                 />
                 <input
                     type="datetime-local"
                     value={repostTime}
                     onChange={handleRepostTimeChange}
-                    required
                     style={formStyles.input}
                 />
                 {showFutureWarning && (
-                    <p style={{ fontSize: '0.9em', color: '#c62828', marginTop: '-10px', marginBottom: '15px' }}>
-                        Warning: Repost time is set in the future.
+                    <p style={{ fontSize: '0.9em', color: '#c62828' }}>
+                        Warning: Repost time is in the future.
+                    </p>
+                )}
+                {invalidTimeWarning && (
+                    <p style={{ fontSize: '0.9em', color: '#c62828' }}>
+                        {invalidTimeWarning}
                     </p>
                 )}
 
                 <div style={formStyles.buttonContainer}>
                     <button
                         type="submit"
-                        disabled={isLoading || !postID || !repostedByUserID || !repostTime}
+                        disabled={!isFormValid || isLoading}
                         style={{
                             ...formStyles.submitButton,
-                            backgroundColor: (!postID || !repostedByUserID || !repostTime) ? '#cccccc' : '#4CAF50',
-                            cursor: (!postID || !repostedByUserID || !repostTime) ? 'not-allowed' : 'pointer'
+                            backgroundColor: isFormValid ? '#4CAF50' : '#ccc',
+                            cursor: isFormValid ? 'pointer' : 'not-allowed'
                         }}
                     >
                         {isLoading ? 'Submitting...' : 'Mark as Repost'}
@@ -99,13 +184,20 @@ function RepostForm() {
 
                 {message && (
                     <p style={{
-                        ...formStyles.message,
-                        backgroundColor: message.includes('error') ? '#ffebee' : '#e8f5e9',
-                        color: message.includes('error') ? '#c62828' : '#2e7d32'
+                        backgroundColor: message.toLowerCase().includes('error') ? '#ffebee' : '#e8f5e9',
+                        color: message.toLowerCase().includes('error') ? '#c62828' : '#2e7d32',
+                        border: '1px solid',
+                        borderColor: message.toLowerCase().includes('error') ? '#c62828' : '#2e7d32',
+                        padding: '10px',
+                        borderRadius: '5px',
+                        marginTop: '10px',
+                        fontWeight: '500',
+                        fontSize: '0.95em'
                     }}>
                         {message}
                     </p>
-                )}
+                    )}
+
             </form>
         </div>
     );

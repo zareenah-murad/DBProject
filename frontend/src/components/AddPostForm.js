@@ -1,105 +1,106 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { formStyles } from './FormStyles';
 import countriesData from '../data/Countries.json';
 
-
-
-
 function AddPostForm() {
-    const navigate = useNavigate();
-    console.log("countriesData", countriesData);
+  const navigate = useNavigate();
 
-    const [selectedCountry, setSelectedCountry] = useState('');
-    const [selectedState, setSelectedState] = useState('');
-    const [stateOptions, setStateOptions] = useState([]);
-    const [cityOptions, setCityOptions] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedCountry, setSelectedCountry] = useState('');
+  const [selectedState, setSelectedState] = useState('');
+  const [stateOptions, setStateOptions] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+  const [futureWarning, setFutureWarning] = useState('');
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-    const [formData, setFormData] = useState({
-        postID: '',
-        userID: '',
-        text: '',
-        postTime: '',
-        repostedByUserID: '',
-        repostTime: '',
-        city: '',
-        state: '',
-        country: '',
-        likes: '',
-        dislikes: '',
-        hasMultimedia: false,
-    });
+  const [formData, setFormData] = useState({
+    username: '',
+    mediaName: '',
+    text: '',
+    postTime: '',
+    repostUsername: '',
+    repostMediaName: '',
+    repostTime: '',
+    city: '',
+    state: '',
+    country: '',
+    likes: '',
+    dislikes: '',
+    hasMultimedia: false,
+    projectName: ''
+  });
 
-    const [message, setMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [futureWarning, setFutureWarning] = useState('');
-
-
-
-    const handleCountryChange = (e) => {
-      const country = e.target.value;
-      setSelectedCountry(country);
-      setSelectedState('');
-      setFormData({ ...formData, country, state: '', city: '' });
-    };
-
-    const handleStateChange = (e) => {
-      const state = e.target.value;
-      setSelectedState(state);
-      setFormData({ ...formData, state, city: '' });
-    };
-
-    const handleCityChange = (e) => {
-      setFormData({ ...formData, city: e.target.value });
-    };
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        const now = new Date().toISOString();
-        let newValue = value;
-    
-        // Handle likes/dislikes
-        if ((name === 'likes' || name === 'dislikes') && value !== '') {
-            const numValue = parseInt(value);
-            if (isNaN(numValue) || numValue < 0) return;
+  useEffect(() => {
+    // Fetch project names
+    axios.get("http://localhost:5050/query/projects")
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          setProjects(res.data);
         }
-    
-        // Future time warning
-        if (name === 'postTime' || name === 'repostTime') {
-            const inputTime = new Date(value);
-            const now = new Date();
-        
-            if (inputTime > now) {
-                setFutureWarning(`Warning: ${name === 'postTime' ? 'Post' : 'Repost'} time is in the future.`);
-            } else {
-                setFutureWarning('');
-            }
-        }        
-    
-        // Repost before post validation
-        if (name === 'repostTime' && formData.postTime && value < formData.postTime) {
-            setMessage('Repost time cannot be earlier than post time.');
-            return;
-        }
-    
-        setFormData({
-            ...formData,
-            [name]: type === 'checkbox' ? checked : newValue,
-        });
-        setMessage('');
-    };    
+      })
+      .catch(err => console.error("Error fetching projects", err));
+  }, []);
 
-    const handleSubmit = async (e) => {
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+
+    if ((name === 'likes' || name === 'dislikes') && value !== '') {
+      const numValue = parseInt(value);
+      if (isNaN(numValue) || numValue < 0) return;
+    }
+
+    if (name === 'postTime' || name === 'repostTime') {
+      const inputTime = new Date(value);
+      const now = new Date();
+      setFutureWarning(inputTime > now ? `Warning: ${name === 'postTime' ? 'Post' : 'Repost'} time is in the future.` : '');
+    }
+
+    if (name === 'repostTime' && formData.postTime && value < formData.postTime) {
+      setMessage('Repost time cannot be earlier than post time.');
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    setMessage('');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+  
     try {
-        const postData = {
-        PostID: formData.postID,
-        UserID: formData.userID,
+      const { username, mediaName, repostUsername, repostMediaName } = formData;
+  
+      // Resolve main user ID
+      const userRes = await axios.get(`http://localhost:5050/query/user-id?username=${username}&mediaName=${mediaName}`);
+      const userID = userRes.data.userID;
+  
+      // Resolve repost user ID if provided
+      let repostedByUserID = null;
+      if (repostUsername && repostMediaName) {
+        try {
+          const repostRes = await axios.get(
+            `http://localhost:5050/query/user-id?username=${repostUsername}&mediaName=${repostMediaName}`
+          );
+          repostedByUserID = repostRes.data.userID;
+        } catch (err) {
+          setMessage("Error: Could not resolve reposting user.");
+          setIsLoading(false);
+          return;
+        }
+      }
+  
+      const postData = {
+        UserID: userID,
         PostText: formData.text,
         PostDateTime: formData.postTime,
-        RepostedByUserID: formData.repostedByUserID || null,
+        RepostedByUserID: repostedByUserID,
         RepostDateTime: formData.repostTime || null,
         City: formData.city || null,
         State: formData.state || null,
@@ -107,248 +108,214 @@ function AddPostForm() {
         Likes: formData.likes ? parseInt(formData.likes) : null,
         Dislikes: formData.dislikes ? parseInt(formData.dislikes) : null,
         HasMultimedia: formData.hasMultimedia
-        };
-
-        const response = await axios.post('http://localhost:5050/add-post', postData);
-        setMessage('Success: Post added!');
-        handleClear();
-    } catch (error) {
-        if (error.response && error.response.data && error.response.data.error) {
-            setMessage(`Error: ${error.response.data.error}`);
-        } else {
-            setMessage('Error: Unable to add post.');
-        }
-    } finally {
-        setIsLoading(false);
-    }
-};
-
-
-    const handleClear = () => {
-        setFormData({
-            postID: '',
-            userID: '',
-            text: '',
-            postTime: '',
-            repostedByUserID: '',
-            repostTime: '',
-            city: '',
-            state: '',
-            country: '',
-            likes: '',
-            dislikes: '',
-            hasMultimedia: false,
+      };
+  
+      const response = await axios.post('http://localhost:5050/add-post', postData);
+      const newPostID = response.data.postID;
+      setMessage(`Success: Post added with ID ${newPostID}`);
+  
+      // If a projectName was selected, associate the post
+      if (formData.projectName) {
+        await axios.post("http://localhost:5050/add-used-in", {
+          projectName: formData.projectName,
+          postID: newPostID
         });
-        setTimeout(() => {
-            setMessage('');
-        }, 3000);
+        setMessage(prev => prev + ` and associated with project "${formData.projectName}".`);
+      }
+  
+      handleClear();
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Unable to add post.';
+      setMessage(`Error: ${msg}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };  
 
-    };
+  const handleClear = () => {
+    setFormData({
+      username: '',
+      mediaName: '',
+      text: '',
+      postTime: '',
+      repostUsername: '',
+    repostMediaName: '',
+      repostTime: '',
+      city: '',
+      state: '',
+      country: '',
+      likes: '',
+      dislikes: '',
+      hasMultimedia: false,
+      projectName: ''
+    });
+    setTimeout(() => setMessage(''), 3000);
+  };
 
-    // Check if all required fields are filled
-    const isFormValid = formData.postID && formData.userID && formData.text && formData.postTime;
-    console.log("Rendering formData", formData);
+  const isFormValid = formData.username && formData.mediaName && formData.text && formData.postTime;
 
-    return (
-        <div style={formStyles.container}>
-            <div style={formStyles.header}>
-                <h2>Add Post</h2>
-                <button 
-                    onClick={() => navigate('/')}
-                    style={formStyles.backButton}
-                >
-                    Back to Menu
-                </button>
-            </div>
-            <form onSubmit={handleSubmit}>
-                <input
-                    name="postID"
-                    placeholder="Post ID *"
-                    value={formData.postID}
-                    onChange={handleChange}
-                    required
-                    style={formStyles.input}
-                />
-                <input
-                    name="userID"
-                    placeholder="User ID * (must exist in Users table)"
-                    value={formData.userID}
-                    onChange={handleChange}
-                    required
-                    style={formStyles.input}
-                />
-                <textarea
-                    name="text"
-                    placeholder="Text content *"
-                    value={formData.text}
-                    onChange={handleChange}
-                    required
-                    style={{...formStyles.input, minHeight: '100px'}}
-                />
-                <div style={{marginBottom: '10px'}}>
-                    <div style={{marginBottom: '5px', color: '#666'}}>Post Time * (When was this originally posted?)
-                    </div>
-                    <input
-                        name="postTime"
-                        type="datetime-local"
-                        value={formData.postTime}
-                        onChange={handleChange}
-                        required
-                        style={formStyles.input}
-                    />
-                </div>
-                {futureWarning && formData.postTime && futureWarning.includes('Post') && (
-                    <p style={{ color: '#c62828', fontSize: '0.9em', marginTop: '5px' }}>{futureWarning}</p>
-                )}
-                <input
-                    name="repostedByUserID"
-                    placeholder="Reposted By User ID"
-                    value={formData.repostedByUserID}
-                    onChange={handleChange}
-                    style={formStyles.input}
-                />
-                <div style={{marginBottom: '10px'}}>
-                    <div style={{marginBottom: '5px', color: '#666'}}>Repost Time (When was this reposted?)</div>
-                    <input
-                        name="repostTime"
-                        type="datetime-local"
-                        value={formData.repostTime}
-                        onChange={handleChange}
-                        style={formStyles.input}
-                    />
-                </div>
-                {futureWarning && formData.repostTime && futureWarning.includes('Repost') && (
-                    <p style={{ color: '#c62828', fontSize: '0.9em', marginTop: '5px' }}>{futureWarning}</p>
-                )}
-                <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-                    {/* Country dropdown */}
-                    <select
-                        value={selectedCountry}
-                        onChange={(e) => {
-                            const country = e.target.value;
-                            const found = countriesData.find(c => c.name === country);
-                            setSelectedCountry(country);
-                            setSelectedState('');
-                            setFormData({...formData, country, state: '', city: ''});
-                            setStateOptions(found ? found.states : []);
-                            setCityOptions([]);
-                        }}
-                        style={formStyles.input}
-                    >
-                        <option value="">Select Country</option>
-                        {countriesData.map((c) => (
-                            <option key={c.id} value={c.name}>{c.name}</option>
-                        ))}
-                    </select>
+  return (
+    <div style={formStyles.container}>
+      <div style={formStyles.header}>
+        <h2>Add Post</h2>
+        <button onClick={() => navigate('/')} style={formStyles.backButton}>
+          Back to Menu
+        </button>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <input
+          name="username"
+          placeholder="Username *"
+          value={formData.username}
+          onChange={handleChange}
+          required
+          style={formStyles.input}
+        />
+        <input
+          name="mediaName"
+          placeholder="Media Platform *"
+          value={formData.mediaName}
+          onChange={handleChange}
+          required
+          style={formStyles.input}
+        />
+        <textarea
+          name="text"
+          placeholder="Post Text *"
+          value={formData.text}
+          onChange={handleChange}
+          required
+          style={{ ...formStyles.input, minHeight: '100px' }}
+        />
+        <input
+          name="postTime"
+          type="datetime-local"
+          value={formData.postTime}
+          onChange={handleChange}
+          required
+          style={formStyles.input}
+        />
+        {futureWarning && <p style={{ color: '#c62828' }}>{futureWarning}</p>}
 
-                    {/* State dropdown */}
-                    {stateOptions.length > 0 && (
-                        <select
-                            value={selectedState}
-                            onChange={(e) => {
-                                const state = e.target.value;
-                                const found = stateOptions.find(s => s.name === state);
-                                setSelectedState(state);
-                                setFormData({...formData, state, city: ''});
-                                setCityOptions(found ? found.cities : []);
-                            }}
-                            style={formStyles.input}
-                        >
-                            <option value="">Select State</option>
-                            {stateOptions.map((s) => (
-                                <option key={s.id} value={s.name}>{s.name}</option>
-                            ))}
-                        </select>
-                    )}
+        <input
+        name="repostUsername"
+        placeholder="Reposted By Username"
+        value={formData.repostUsername}
+        onChange={handleChange}
+        style={formStyles.input}
+        />
+        <input
+        name="repostMediaName"
+        placeholder="Reposted By Media Platform"
+        value={formData.repostMediaName}
+        onChange={handleChange}
+        style={formStyles.input}
+        />
 
-                    {/* City dropdown */}
-                    {cityOptions.length > 0 && (
-                        <select
-                            value={formData.city}
-                            onChange={(e) => setFormData({...formData, city: e.target.value})}
-                            style={formStyles.input}
-                        >
-                            <option value="">Select City</option>
-                            {cityOptions.map((c) => (
-                                <option key={c.id} value={c.name}>{c.name}</option>
-                            ))}
-                        </select>
-                    )}
-                </div>
-                <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-                    <input
-                        name="likes"
-                        type="number"
-                        min="0"
-                        placeholder="Likes"
-                        value={formData.likes}
-                        onChange={handleChange}
-                        style={{flex: 1, padding: '8px'}}
-                    />
-                    <input
-                        name="dislikes"
-                        type="number"
-                        min="0"
-                        placeholder="Dislikes"
-                        value={formData.dislikes}
-                        onChange={handleChange}
-                        style={{flex: 1, padding: '8px'}}
-                    />
-                </div>
-                <label style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px'}}>
-                    <input
-                        type="checkbox"
-                        name="hasMultimedia"
-                        checked={formData.hasMultimedia}
-                        onChange={handleChange}
-                    />
-                    Has Multimedia
-                </label>
+        <input
+          name="repostTime"
+          type="datetime-local"
+          value={formData.repostTime}
+          onChange={handleChange}
+          style={formStyles.input}
+        />
 
-                <div style={formStyles.buttonContainer}>
-                    <button
-                        type="submit"
-                        disabled={!isFormValid || isLoading}
-                        style={{
-                            ...formStyles.submitButton,
-                            backgroundColor: isFormValid ? '#4CAF50' : '#cccccc',
-                            cursor: isFormValid ? 'pointer' : 'not-allowed'
-                        }}
-                    >
-                        {isLoading ? 'Adding...' : 'Add Post'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleClear}
-                        style={formStyles.clearButton}
-                    >
-                        Clear Form
-                    </button>
-                </div>
-                {message && (
-                  <p style={{
-                    ...formStyles.message,
-                    backgroundColor: message.includes('Error')
-                      ? '#ffebee'
-                      : message.includes('Success')
-                        ? '#e8f5e9'
-                        : 'transparent',
-                    color: message.includes('Error')
-                      ? '#c62828'
-                      : message.includes('Success')
-                        ? '#2e7d32'
-                        : '#000',
-                    border: '1px solid',
-                    padding: '10px',
-                    borderRadius: '5px',
-                    marginTop: '10px'
-                  }}>
-                    {message}
-                  </p>
-                )}
-            </form>
+        {/* Country, State, City dropdowns go here as in your existing version */}
+
+        <input
+          name="likes"
+          type="number"
+          min="0"
+          placeholder="Likes"
+          value={formData.likes}
+          onChange={handleChange}
+          style={formStyles.input}
+        />
+        <input
+          name="dislikes"
+          type="number"
+          min="0"
+          placeholder="Dislikes"
+          value={formData.dislikes}
+          onChange={handleChange}
+          style={formStyles.input}
+        />
+
+        <label>
+          <input
+            type="checkbox"
+            name="hasMultimedia"
+            checked={formData.hasMultimedia}
+            onChange={handleChange}
+          />
+          Has Multimedia
+        </label>
+
+        {/* Project Dropdown */}
+        <select
+          name="projectName"
+          value={formData.projectName}
+          onChange={handleChange}
+          style={formStyles.input}
+        >
+          <option value="">Associate with Project</option>
+          {projects.map((p, idx) => (
+            <option key={idx} value={p}>{p}</option>
+          ))}
+        </select>
+
+        <div style={formStyles.buttonContainer}>
+        <button
+            type="submit"
+            disabled={!isFormValid || isLoading}
+            style={{
+            ...formStyles.submitButton,
+            backgroundColor: isFormValid ? '#4CAF50' : '#ccc',
+            cursor: isFormValid ? 'pointer' : 'not-allowed'
+            }}
+        >
+            {isLoading ? 'Adding...' : 'Add Post'}
+        </button>
+        <button
+            type="button"
+            onClick={handleClear}
+            style={formStyles.clearButton}
+        >
+            Clear Form
+        </button>
+        
         </div>
-    );
+
+        {message && (
+        <p style={{
+            backgroundColor: message.includes('Error')
+            ? '#ffebee'
+            : message.includes('Success')
+                ? '#e8f5e9'
+                : 'transparent',
+            color: message.includes('Error')
+            ? '#c62828'
+            : message.includes('Success')
+                ? '#2e7d32'
+                : '#000',
+            border: message.includes('Error') || message.includes('Success') ? '1px solid' : 'none',
+            borderColor: message.includes('Error')
+            ? '#c62828'
+            : message.includes('Success')
+                ? '#2e7d32'
+                : 'transparent',
+            padding: '10px',
+            borderRadius: '5px',
+            marginTop: '10px',
+            fontWeight: '500',
+            fontSize: '0.95em'
+        }}>
+        {message}
+      </p>
+    )}
+    </form>
+    </div> 
+  );
 }
 
 export default AddPostForm;

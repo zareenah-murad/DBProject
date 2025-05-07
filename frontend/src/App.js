@@ -9,6 +9,7 @@ import AddProjectForm from './components/AddProjectForm';
 import AddFieldForm from './components/AddFieldForm';
 import AddSocialMediaForm from './components/AddSocialMediaForm';
 import AddAnalysisResultForm from './components/AddAnalysisResultForm';
+import AssociatePostWithProjectForm from './components/AssociatePostWithProjectForm';
 import QuerySocialMediaPostsForm from './components/QuerySocialMediaPostsForm';
 import QueryTimePeriodPostsForm from './components/QueryTimePeriodPostsForm';
 import QueryUsernamePostsForm from './components/QueryUsernamePostsForm';
@@ -28,6 +29,7 @@ function App() {
         <Route path="/add-field" element={<AddFieldForm />} />
         <Route path="/add-socialmedia" element={<AddSocialMediaForm />} />
         <Route path="/add-analysisresult" element={<AddAnalysisResultForm />} />
+        <Route path="/associate-post-project" element={<AssociatePostWithProjectForm />} />
         <Route path="/query/socialmedia" element={<QuerySocialMediaPostsForm />} />
         <Route path="/query/timeperiod" element={<QueryTimePeriodPostsForm />} />
         <Route path="/query/username" element={<QueryUsernamePostsForm />} />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { formStyles } from './FormStyles';
@@ -12,6 +12,19 @@ function AddFieldForm() {
 
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [projects, setProjects] = useState([]);
+
+    useEffect(() => {
+        axios.get('http://localhost:5050/query/projects')
+          .then(res => {
+            if (Array.isArray(res.data)) {
+              setProjects(res.data);
+            }
+          })
+          .catch(() => {
+            setMessage('Error: Failed to load projects.');
+          });
+      }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -70,18 +83,22 @@ function AddFieldForm() {
                 </button>
             </div>
             <form onSubmit={handleSubmit}>
+                <select
+                        name="projectName"
+                        value={formData.projectName}
+                        onChange={handleChange}
+                        required
+                        style={formStyles.input}
+                        >
+                        <option value="">Select Project</option>
+                        {projects.map((project, idx) => (
+                            <option key={idx} value={project}>{project}</option>
+                        ))}
+                        </select>
                 <input 
                     name="fieldName" 
                     placeholder="Field Name *" 
                     value={formData.fieldName} 
-                    onChange={handleChange} 
-                    required 
-                    style={formStyles.input}
-                />
-                <input 
-                    name="projectName" 
-                    placeholder="Project Name * (must exist in Project table)" 
-                    value={formData.projectName} 
                     onChange={handleChange} 
                     required 
                     style={formStyles.input}

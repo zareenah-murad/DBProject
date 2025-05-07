@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { formStyles } from './FormStyles';
@@ -9,6 +9,17 @@ function QuerySocialMediaPostsForm() {
     const [results, setResults] = useState([]);
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [mediaOptions, setMediaOptions] = useState([]);
+
+    useEffect(() => {
+        axios.get('http://localhost:5050/query/media')
+          .then((res) => {
+            if (Array.isArray(res.data)) {
+              setMediaOptions(res.data);
+            }
+          })
+          .catch(() => setMessage('Error: Failed to load media platforms.'));
+      }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -50,14 +61,18 @@ function QuerySocialMediaPostsForm() {
                 </button>
             </div>
             <form onSubmit={handleSubmit}>
-                <input 
-                    type="text"
-                    placeholder="Media Name *"
-                    value={mediaName}
-                    onChange={(e) => setMediaName(e.target.value)}
-                    required
-                    style={formStyles.input}
-                />
+            <select
+                value={mediaName}
+                onChange={(e) => setMediaName(e.target.value)}
+                required
+                style={formStyles.input}
+                >
+                <option value="">Select Media Platform</option>
+                {mediaOptions.map((media, idx) => (
+                    <option key={idx} value={media}>{media}</option>
+                ))}
+                </select>
+
 
                 <div style={formStyles.buttonContainer}>
                     <button 

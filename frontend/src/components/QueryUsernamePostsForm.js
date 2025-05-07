@@ -45,7 +45,7 @@ function QueryUsernamePostsForm() {
     return (
         <div style={formStyles.container}>
             <div style={formStyles.header}>
-                <h2>Find Posts by Username</h2>
+                <h2>Find Posts by Username of a Certain Media</h2>
                 <button 
                     onClick={() => navigate('/')}
                     style={formStyles.backButton}

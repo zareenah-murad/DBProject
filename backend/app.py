@@ -3,6 +3,7 @@ from flask_cors import CORS
 from datetime import datetime
 import MySQLdb
 import config
+import re
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
@@ -447,10 +448,6 @@ def add_field():
     return jsonify({"status": "success", "field": field_name}), 201
 
 
-from flask import request, jsonify
-import re
-from datetime import datetime
-
 @app.route("/add-post", methods=["POST", "OPTIONS"])
 def add_post():
     if request.method == "OPTIONS":
@@ -463,19 +460,13 @@ def add_post():
     data = request.get_json(force=True)
     print("DEBUG: Received data:", data)
 
-    # Required fields
-    post_id = data.get("PostID")
     user_id = data.get("UserID")
     post_text = data.get("PostText")
     post_datetime = data.get("PostDateTime")
 
-    if not all([post_id, user_id, post_text, post_datetime]):
+    if not all([user_id, post_text, post_datetime]):
         print("ERROR: Missing required fields")
-        return jsonify({"error": "Missing required fields (PostID, UserID, PostText, PostDateTime)"}), 400
-
-    if not re.match(r"^[A-Za-z0-9_-]{1,50}$", post_id):
-        print("ERROR: Invalid PostID format")
-        return jsonify({"error": "Invalid PostID format (letters, numbers, dashes, underscores only)"}), 400
+        return jsonify({"error": "Missing required fields (UserID, PostText, PostDateTime)"}), 400
 
     try:
         datetime.fromisoformat(post_datetime)
@@ -516,25 +507,30 @@ def add_post():
 
     cursor = db.cursor()
 
+    cursor.execute("""
+        SELECT COUNT(*) FROM Posts
+        WHERE UserID = %s AND PostText = %s AND PostDateTime = %s
+    """, (user_id, post_text, post_datetime))
+
+    if cursor.fetchone()[0] > 0:
+        return jsonify({"error": "Duplicate post detected for this user at the same time."}), 400
+
     try:
         cursor.execute("""
-            INSERT INTO Posts (PostID, UserID, PostText, PostDateTime, RepostedByUserID, RepostDateTime,
+            INSERT INTO Posts (UserID, PostText, PostDateTime, RepostedByUserID, RepostDateTime,
                                City, State, Country, Likes, Dislikes, HasMultimedia)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            post_id, user_id, post_text, post_datetime,
+            user_id, post_text, post_datetime,
             reposted_by_user_id, repost_datetime,
             city, state, country, likes, dislikes, has_multimedia
         ))
         db.commit()
+        post_id = cursor.lastrowid
 
     except MySQLdb.IntegrityError as e:
         db.rollback()
         error_code = e.args[0]
-
-        if error_code == 1062:  # Duplicate entry
-            print("ERROR: Duplicate PostID")
-            return jsonify({"error": "A post with this ID already exists. Please use a unique PostID."}), 400
 
         if error_code == 1452:  # Foreign key constraint fails
             print("ERROR: Foreign key violation")
@@ -548,8 +544,8 @@ def add_post():
         print("ERROR inserting post:", str(e))
         return jsonify({"error": "An unexpected database error occurred. Please try again."}), 500
 
-    print("DEBUG: Post inserted successfully.")
-    return jsonify({"status": "success", "post_id": post_id}), 201
+    print("DEBUG: Post inserted successfully with PostID =", post_id)
+    return jsonify({"status": "success", "postID": post_id}), 201
 
 
 @app.route('/update/repost', methods=['POST'])
@@ -562,23 +558,30 @@ def mark_post_as_repost():
     if not post_id or not reposted_by_user_id or not repost_time:
         return jsonify({'error': 'postID, repostedByUserID, and repostTime are required.'}), 400
 
-    # Timestamp validation
     try:
-        datetime.fromisoformat(repost_time)
+        repost_dt = datetime.fromisoformat(repost_time)
     except ValueError:
         return jsonify({'error': 'repostTime must be a valid ISO datetime string.'}), 400
 
     try:
         cursor = db.cursor()
 
-        cursor.execute("SELECT 1 FROM Posts WHERE PostID = %s", (post_id,))
-        if cursor.fetchone() is None:
+        # Check if post exists and get its original PostDateTime
+        cursor.execute("SELECT PostDateTime FROM Posts WHERE PostID = %s", (post_id,))
+        row = cursor.fetchone()
+        if row is None:
             return jsonify({'error': f'No post found with PostID {post_id}'}), 404
 
+        original_post_dt = row[0]
+        if repost_dt < original_post_dt:
+            return jsonify({'error': 'Repost time cannot be before the original post time.'}), 400
+
+        # Check if user exists
         cursor.execute("SELECT 1 FROM Users WHERE UserID = %s", (reposted_by_user_id,))
         if cursor.fetchone() is None:
             return jsonify({'error': f'No user found with UserID {reposted_by_user_id}'}), 404
 
+        # Perform the update
         cursor.execute("""
             UPDATE Posts
             SET RepostedByUserID = %s, RepostDateTime = %s
@@ -590,6 +593,7 @@ def mark_post_as_repost():
 
     except Exception as e:
         print("ERROR in mark_post_as_repost:", e)
+        db.rollback()
         return jsonify({'error': 'An error occurred while updating the post.'}), 500
 
 
@@ -682,9 +686,13 @@ def add_analysisresult():
     if not re.match(r"^[A-Za-z0-9_\- ]{1,100}$", project_name):
         print(f"ERROR: Invalid ProjectName format: '{project_name}'")
         return jsonify({"error": "Invalid ProjectName format."}), 400
-    if not re.match(r"^[A-Za-z0-9_\-]{1,50}$", post_id):
-        print(f"ERROR: Invalid PostID format: '{post_id}'")
-        return jsonify({"error": "Invalid PostID format."}), 400
+
+    try:
+        post_id = int(post_id)
+    except (ValueError, TypeError):
+        print(f"ERROR: Invalid PostID: {post_id}")
+        return jsonify({"error": "PostID must be a valid integer."}), 400
+
     if not re.match(r"^[A-Za-z0-9_\- ]{1,100}$", field_name):
         print(f"ERROR: Invalid FieldName format: '{field_name}'")
         return jsonify({"error": "Invalid FieldName format."}), 400
@@ -697,7 +705,7 @@ def add_analysisresult():
         cursor.execute("""
             INSERT INTO AnalysisResult (ProjectName, PostID, FieldName, FieldValue)
             VALUES (%s, %s, %s, %s)
-        """, (project_name.strip(), post_id.strip(), field_name.strip(), field_value.strip()))
+        """, (project_name.strip(), post_id, field_name.strip(), field_value.strip()))
         db.commit()
     except Exception as e:
         db.rollback()
@@ -717,6 +725,7 @@ def add_analysisresult():
 
     print("DEBUG: AnalysisResult inserted successfully.")
     return jsonify({"status": "success"}), 201
+
 
 
 @app.route("/add-used-in", methods=["POST", "OPTIONS"])
@@ -759,6 +768,59 @@ def add_used_in():
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
     return jsonify({"status": "success"}), 201
+
+@app.route("/query/projects")
+def query_projects():
+    cursor = db.cursor()
+    cursor.execute("SELECT ProjectName FROM Project")
+    rows = cursor.fetchall()
+    project_names = [row[0] for row in rows]
+    return jsonify(project_names)
+
+
+@app.route("/query/user-id", methods=["GET"])
+def get_user_id():
+    username = request.args.get("username")
+    media_name = request.args.get("mediaName")
+
+    if not username or not media_name:
+        return jsonify({"error": "Both username and mediaName are required."}), 400
+
+    try:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT UserID FROM Users WHERE Username = %s AND MediaName = %s
+        """, (username, media_name))
+        result = cursor.fetchone()
+        if result:
+            return jsonify({"userID": result[0]}), 200
+        else:
+            return jsonify({"error": "User not found."}), 404
+    except Exception as e:
+        print("ERROR in get_user_id:", str(e))
+        return jsonify({"error": "Server error"}), 500
+
+@app.route('/query/fields-by-project', methods=['GET'])
+def get_fields_by_project():
+    project_name = request.args.get('projectName')
+    if not project_name:
+        return jsonify({'error': 'Project name is required'}), 400
+
+    try:
+        cursor = db.cursor()
+        cursor.execute("SELECT FieldName FROM Field WHERE ProjectName = %s", (project_name,))
+        fields = [row[0] for row in cursor.fetchall()]
+        return jsonify(fields), 200
+    except Exception as e:
+        print("Error fetching fields:", e)
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/query/media')
+def query_media():
+    cursor = db.cursor()
+    cursor.execute("SELECT MediaName FROM SocialMedia")
+    rows = cursor.fetchall()
+    return jsonify([row[0] for row in rows])
 
 
 @app.route("/query/posts-by-media", methods=["GET"])
@@ -1018,6 +1080,7 @@ def query_experiment_results():
 
         for row in analysis_rows:
             post_id, field_name, field_value = row
+            post_id = int(post_id)  
 
             if post_id in post_map:
                 post_map[post_id]['analysis'].append({
@@ -1025,16 +1088,19 @@ def query_experiment_results():
                     'value': field_value
                 })
 
+
             # Count field occurrences for coverage
             if field_name not in field_coverage:
                 field_coverage[field_name] = set()
-            field_coverage[field_name].add(post_id)
+            if post_id not in field_coverage.get(field_name, set()):
+                field_coverage.setdefault(field_name, set()).add(post_id)
 
-        # Convert field_coverage sets to percentages
+
         field_coverage_percent = {
-            field: len(post_ids) / post_count
+            field: round(len(set(post_ids)) / post_count, 4)
             for field, post_ids in field_coverage.items()
         }
+
 
         return jsonify({
             'posts': list(post_map.values()),

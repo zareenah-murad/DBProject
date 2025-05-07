@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { formStyles } from './FormStyles';
@@ -9,6 +9,18 @@ function QueryExperimentResultsForm() {
     const [results, setResults] = useState(null);
     const [message, setMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [projectOptions, setProjectOptions] = useState([]);
+
+    useEffect(() => {
+        axios.get('http://localhost:5050/query/projects')
+            .then((res) => {
+                if (Array.isArray(res.data)) {
+                    setProjectOptions(res.data);
+                }
+            })
+            .catch(() => setMessage('Error: Failed to load projects.'));
+    }, []);
+    
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -46,17 +58,21 @@ return (
             </button>
         </div>
         <form onSubmit={handleSubmit}>
-            <input
-                type="text"
-                placeholder="Project Name *"
-                value={projectName}
-                onChange={(e) => {
-                    setProjectName(e.target.value);
-                    setMessage('');
-                }}
-                required
-                style={formStyles.input}
-            />
+        <select
+            value={projectName}
+            onChange={(e) => {
+                setProjectName(e.target.value);
+                setMessage('');
+            }}
+            required
+            style={formStyles.input}
+        >
+            <option value="">Select Project</option>
+            {projectOptions.map((proj, idx) => (
+                <option key={idx} value={proj}>{proj}</option>
+            ))}
+        </select>
+
 
             <div style={formStyles.buttonContainer}>
                 <button

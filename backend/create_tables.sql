@@ -48,7 +48,7 @@ ADD CONSTRAINT unique_username_per_platform UNIQUE (Username, MediaName);
 
 -- Create Posts table
 CREATE TABLE Posts (
-    PostID VARCHAR(100),
+    PostID INT AUTO_INCREMENT,
     UserID INT NOT NULL,
     PostText TEXT NOT NULL,
     PostDateTime DATETIME NOT NULL,
@@ -89,7 +89,7 @@ CREATE TABLE Field (
 -- Create AnalysisResult table
 CREATE TABLE AnalysisResult (
     ProjectName VARCHAR(100),
-    PostID VARCHAR(100),
+    PostID INT,
     FieldName VARCHAR(100),
     FieldValue TEXT NOT NULL,
     PRIMARY KEY (ProjectName, PostID, FieldName),
@@ -107,7 +107,7 @@ CREATE TABLE AnalysisResult (
 -- Create UsedIn table
 CREATE TABLE Used_In (
     ProjectName VARCHAR(100),
-    PostID VARCHAR(100),
+    PostID INT,
     PRIMARY KEY (ProjectName, PostID),
     FOREIGN KEY (ProjectName) REFERENCES Project(ProjectName)
         ON DELETE CASCADE
