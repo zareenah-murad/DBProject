@@ -28,11 +28,25 @@ function RepostForm() {
         const now = new Date();
         setShowFutureWarning(selected > now);
 
-        if (selectedPost?.postDateTime && selected < new Date(selectedPost.postDateTime)) {
-            setInvalidTimeWarning("Repost time cannot be before the original post time.");
-        } else {
-            setInvalidTimeWarning('');
-        }
+        if (selectedPost?.postDateTime) {
+            const selectedUTC = new Date(inputTime);
+            const originalUTC = new Date(selectedPost.postDateTime);
+        
+            console.log("== HANDLE TIME CHANGE ==");
+            console.log("Original post datetime (raw):", selectedPost.postDateTime);
+            console.log("Repost datetime (raw):", inputTime);
+            console.log("Original (Date object):", new Date(selectedPost.postDateTime));
+            console.log("Repost (Date object):", new Date(inputTime));
+            console.log("Original timestamp:", new Date(selectedPost.postDateTime).getTime());
+            console.log("Repost timestamp:", new Date(inputTime).getTime());
+
+            // Compare timestamps directly
+            if (selectedUTC.getTime() < originalUTC.getTime()) {
+                setInvalidTimeWarning("Repost time cannot be before the original post time.");
+            } else {
+                setInvalidTimeWarning('');
+            }
+        }        
     };
 
     const fetchPosts = async () => {
@@ -51,26 +65,37 @@ function RepostForm() {
 
     const handlePostSelect = (postID) => {
         setSelectedPostID(postID);
-        const found = posts.find(p => p.postID === postID);
+        const found = posts.find(p => String(p.postID) === String(postID)); // force both to string
         setSelectedPost(found || null);
         setInvalidTimeWarning('');
-    };
+    };    
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
         setMessage('');
 
-        if (!selectedPost || new Date(repostTime) < new Date(selectedPost.postDateTime)) {
+        console.log("== HANDLE SUBMIT ==");
+        console.log("Selected Post:", selectedPost);
+        console.log("Selected Post DateTime (raw):", selectedPost.postDateTime);
+        console.log("Selected Post DateTime (Date object):", new Date(selectedPost.postDateTime));
+        console.log("Repost Time (raw):", repostTime);
+        console.log("Repost Time (Date object):", new Date(repostTime));
+        console.log("Post timestamp:", new Date(selectedPost.postDateTime).getTime());
+        console.log("Repost timestamp:", new Date(repostTime).getTime());
+
+
+        if (!selectedPost || new Date(repostTime).getTime() < new Date(selectedPost.postDateTime).getTime()) {
             setMessage('Error: Repost time must be after the original post time.');
             setIsLoading(false);
             return;
-        }
+        }        
 
         try {
             const res = await axios.get(`http://localhost:5050/query/user-id?username=${repostUsername}&mediaName=${repostMediaName}`);
             const repostedByUserID = res.data.userID;
 
+            console.log(repostTime);
             await axios.post('http://localhost:5050/update/repost', {
                 postID: selectedPostID,
                 repostedByUserID,
@@ -140,13 +165,13 @@ function RepostForm() {
                 )}
 
                 <input
-                    placeholder="Reposted By Username *"
+                    placeholder="Reposted By Username"
                     value={repostUsername}
                     onChange={(e) => setRepostUsername(e.target.value)}
                     style={formStyles.input}
                 />
                 <input
-                    placeholder="Reposted By Media Platform *"
+                    placeholder="Reposted By Media Platform"
                     value={repostMediaName}
                     onChange={(e) => setRepostMediaName(e.target.value)}
                     style={formStyles.input}

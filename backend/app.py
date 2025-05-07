@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timezone
 import MySQLdb
 import config
 import re
@@ -560,6 +560,8 @@ def mark_post_as_repost():
 
     try:
         repost_dt = datetime.fromisoformat(repost_time)
+        if repost_dt.tzinfo is not None:
+            repost_dt = repost_dt.astimezone(timezone.utc).replace(tzinfo=None)
     except ValueError:
         return jsonify({'error': 'repostTime must be a valid ISO datetime string.'}), 400
 
@@ -573,7 +575,13 @@ def mark_post_as_repost():
             return jsonify({'error': f'No post found with PostID {post_id}'}), 404
 
         original_post_dt = row[0]
+        if original_post_dt.tzinfo is not None:
+            original_post_dt = original_post_dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+        print("DEBUG: Retrieved original_post_dt from DB =", original_post_dt)
+
         if repost_dt < original_post_dt:
+            print("ERROR: Repost time is before original post time")
             return jsonify({'error': 'Repost time cannot be before the original post time.'}), 400
 
         # Check if user exists
@@ -595,7 +603,6 @@ def mark_post_as_repost():
         print("ERROR in mark_post_as_repost:", e)
         db.rollback()
         return jsonify({'error': 'An error occurred while updating the post.'}), 500
-
 
 @app.route("/add-socialmedia", methods=["POST", "OPTIONS"])
 def add_socialmedia():
